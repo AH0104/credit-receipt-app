@@ -41,19 +41,24 @@ export async function initSheet() {
     });
   }
 
-  // ヘッダーを設定
+  // ヘッダーを設定（常に最新のヘッダーに更新）
+  const expectedHeaders = ['取引日', 'カード番号', '伝票番号', '取引内容', '支払区分', '端末番号', 'カード会社', '金額', '係員', '読取確度', '登録日時'];
+
   const headerCheck = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
     range: '取引データ!A1:K1',
   }).catch(() => null);
 
-  if (!headerCheck?.data?.values?.length) {
+  const currentHeaders = headerCheck?.data?.values?.[0] || [];
+  const headersMatch = expectedHeaders.every((h, i) => currentHeaders[i] === h);
+
+  if (!headersMatch) {
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
       range: '取引データ!A1:K1',
       valueInputOption: 'RAW',
       requestBody: {
-        values: [['取引日', 'カード番号', '伝票番号', '取引内容', '支払区分', '端末番号', 'カード会社', '金額', '係員', '読取確度', '登録日時']]
+        values: [expectedHeaders]
       }
     });
   }
