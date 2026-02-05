@@ -42,11 +42,11 @@ export async function initSheet() {
   }
 
   // ヘッダーを設定（常に最新のヘッダーに更新）
-  const expectedHeaders = ['取引日', 'カード番号', '伝票番号', '取引内容', '支払区分', '端末番号', 'カード会社', '金額', '係員', '読取確度', '登録日時'];
+  const expectedHeaders = ['取引日', '伝票番号', '取引内容', '支払区分', '端末番号', 'カード会社', '金額', '係員', '読取確度', '登録日時'];
 
   const headerCheck = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
-    range: '取引データ!A1:K1',
+    range: '取引データ!A1:J1',
   }).catch(() => null);
 
   const currentHeaders = headerCheck?.data?.values?.[0] || [];
@@ -55,7 +55,7 @@ export async function initSheet() {
   if (!headersMatch) {
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
-      range: '取引データ!A1:K1',
+      range: '取引データ!A1:J1',
       valueInputOption: 'RAW',
       requestBody: {
         values: [expectedHeaders]
@@ -73,7 +73,7 @@ export async function appendRows(rows: string[][]) {
 
   const result = await sheets.spreadsheets.values.append({
     spreadsheetId: SPREADSHEET_ID,
-    range: '取引データ!A:K',
+    range: '取引データ!A:J',
     valueInputOption: 'RAW',
     insertDataOption: 'INSERT_ROWS',
     requestBody: {
@@ -91,7 +91,7 @@ export async function getAllRows() {
 
   const result = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
-    range: '取引データ!A:K',
+    range: '取引データ!A:J',
   });
 
   const rows = result.data.values || [];
@@ -100,16 +100,15 @@ export async function getAllRows() {
   return rows.slice(1).map((row, index) => ({
     rowIndex: index + 2, // スプレッドシートの行番号（1-indexed + header）
     transaction_date: row[0] || '',
-    card_number: row[1] || '',
-    slip_number: row[2] || '',
-    transaction_content: row[3] || '',
-    payment_type: row[4] || '',
-    terminal_number: row[5] || '',
-    card_brand: row[6] || '',
-    amount: parseInt(row[7]) || 0,
-    clerk: row[8] || '',
-    confidence: row[9] || '',
-    created_at: row[10] || '',
+    slip_number: row[1] || '',
+    transaction_content: row[2] || '',
+    payment_type: row[3] || '',
+    terminal_number: row[4] || '',
+    card_brand: row[5] || '',
+    amount: parseInt(row[6]) || 0,
+    clerk: row[7] || '',
+    confidence: row[8] || '',
+    created_at: row[9] || '',
   }));
 }
 
@@ -118,7 +117,7 @@ export async function updateRow(rowIndex: number, data: string[]) {
   const sheets = getSheets();
   await sheets.spreadsheets.values.update({
     spreadsheetId: SPREADSHEET_ID,
-    range: `取引データ!A${rowIndex}:K${rowIndex}`,
+    range: `取引データ!A${rowIndex}:J${rowIndex}`,
     valueInputOption: 'RAW',
     requestBody: {
       values: [data],
@@ -132,7 +131,7 @@ export async function deleteRow(rowIndex: number) {
   const sheets = getSheets();
   await sheets.spreadsheets.values.clear({
     spreadsheetId: SPREADSHEET_ID,
-    range: `取引データ!A${rowIndex}:K${rowIndex}`,
+    range: `取引データ!A${rowIndex}:J${rowIndex}`,
   });
   return true;
 }
