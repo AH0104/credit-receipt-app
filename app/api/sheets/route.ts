@@ -16,12 +16,11 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const { records } = await request.json();
-    // records: Array<{ transaction_date, card_number, slip_number, transaction_content, payment_type, terminal_number, card_brand, amount, clerk, confidence }>
+    // records: Array<{ transaction_date, slip_number, transaction_content, payment_type, terminal_number, card_brand, amount, clerk, confidence }>
 
     const now = new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
     const rows = records.map((r: any) => [
       r.transaction_date || '',
-      r.card_number || '',
       r.slip_number || '',
       r.transaction_content || '',
       r.payment_type || '',
@@ -52,7 +51,6 @@ export async function PUT(request: NextRequest) {
     const now = new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
     const row = [
       data.transaction_date || '',
-      data.card_number || '',
       data.slip_number || '',
       data.transaction_content || '',
       data.payment_type || '',
