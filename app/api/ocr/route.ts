@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
     }
 
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-3.0-flash' });
 
     const results = [];
 
@@ -22,15 +22,19 @@ JSONのみを返し、他のテキストやマークダウンは一切含めな�
 
 {
   "transaction_date": "YYYY-MM-DD形式の取引日",
-  "card_brand": "カード会社名（VISA, JCB, Mastercard, AMEX, Diners等）",
-  "transaction_type": "売上 or 取消 or 返品",
-  "amount": 数値のみ（カンマや¥記号なし）,
+  "card_number": "カード番号（マスクされている場合はマスク込みで、例: ****-****-****-1234）",
   "slip_number": "伝票番号",
-  "approval_number": "承認番号",
+  "transaction_content": "取引内容（売上、取消、返品など）",
+  "payment_type": "支払区分（一括、分割、リボ、ボーナスなど）",
+  "terminal_number": "端末番号",
+  "card_brand": "カード会社名（VISA, JCB, Mastercard, AMEX, Diners等）",
+  "amount": 数値のみ（カンマや¥記号なし、取消・返品の場合はマイナス値）,
+  "clerk": "係員名または係員番号",
   "confidence": "high or medium or low（読み取り確信度）"
 }
 
-読み取れない項目は null としてください。`;
+読み取れない項目は null としてください。
+取消や返品の場合、金額はマイナス値で返してください。`;
 
         const result = await model.generateContent([
           prompt,
@@ -57,11 +61,14 @@ JSONのみを返し、他のテキストやマークダウンは一切含めな�
         console.error('OCR error for', image.fileName, err);
         results.push({
           transaction_date: null,
-          card_brand: null,
-          transaction_type: null,
-          amount: null,
+          card_number: null,
           slip_number: null,
-          approval_number: null,
+          transaction_content: null,
+          payment_type: null,
+          terminal_number: null,
+          card_brand: null,
+          amount: null,
+          clerk: null,
           confidence: 'low',
           fileName: image.fileName,
           error: err.message,

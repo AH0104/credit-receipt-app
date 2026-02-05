@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { appendRows, getAllRows, updateRow, deleteRow } from '@/app/lib/sheets';
+import { appendRows, getAllRows, updateRow, deleteRow, createSummarySheets } from '@/app/lib/sheets';
 
 // GET: 全データ取得
 export async function GET() {
@@ -16,21 +16,28 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const { records } = await request.json();
-    // records: Array<{ transaction_date, card_brand, transaction_type, amount, slip_number, approval_number, confidence }>
+    // records: Array<{ transaction_date, card_number, slip_number, transaction_content, payment_type, terminal_number, card_brand, amount, clerk, confidence }>
 
     const now = new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
     const rows = records.map((r: any) => [
       r.transaction_date || '',
-      r.card_brand || '',
-      r.transaction_type || '売上',
-      String(r.amount || 0),
+      r.card_number || '',
       r.slip_number || '',
-      r.approval_number || '',
+      r.transaction_content || '',
+      r.payment_type || '',
+      r.terminal_number || '',
+      r.card_brand || '',
+      String(r.amount || 0),
+      r.clerk || '',
       r.confidence || '',
       now,
     ]);
 
     const count = await appendRows(rows);
+
+    // 集計シートを更新
+    await createSummarySheets();
+
     return NextResponse.json({ success: true, addedRows: count });
   } catch (err: any) {
     console.error('Sheets POST error:', err);
@@ -45,15 +52,22 @@ export async function PUT(request: NextRequest) {
     const now = new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
     const row = [
       data.transaction_date || '',
-      data.card_brand || '',
-      data.transaction_type || '売上',
-      String(data.amount || 0),
+      data.card_number || '',
       data.slip_number || '',
-      data.approval_number || '',
+      data.transaction_content || '',
+      data.payment_type || '',
+      data.terminal_number || '',
+      data.card_brand || '',
+      String(data.amount || 0),
+      data.clerk || '',
       data.confidence || '',
       now,
     ];
     await updateRow(rowIndex, row);
+
+    // 集計シートを更新
+    await createSummarySheets();
+
     return NextResponse.json({ success: true });
   } catch (err: any) {
     console.error('Sheets PUT error:', err);
@@ -66,9 +80,24 @@ export async function DELETE(request: NextRequest) {
   try {
     const { rowIndex } = await request.json();
     await deleteRow(rowIndex);
+
+    // 集計シートを更新
+    await createSummarySheets();
+
     return NextResponse.json({ success: true });
   } catch (err: any) {
     console.error('Sheets DELETE error:', err);
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}
+
+// PATCH: 集計シートを手動更新
+export async function PATCH() {
+  try {
+    await createSummarySheets();
+    return NextResponse.json({ success: true });
+  } catch (err: any) {
+    console.error('Sheets PATCH error:', err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

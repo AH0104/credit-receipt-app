@@ -44,16 +44,16 @@ export async function initSheet() {
   // ヘッダーを設定
   const headerCheck = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
-    range: '取引データ!A1:H1',
+    range: '取引データ!A1:K1',
   }).catch(() => null);
 
   if (!headerCheck?.data?.values?.length) {
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
-      range: '取引データ!A1:H1',
+      range: '取引データ!A1:K1',
       valueInputOption: 'RAW',
       requestBody: {
-        values: [['取引日', 'カード会社', '取扱区分', '取引金額', '伝票番号', '承認番号', '読取確度', '登録日時']]
+        values: [['取引日', 'カード番号', '伝票番号', '取引内容', '支払区分', '端末番号', 'カード会社', '金額', '係員', '読取確度', '登録日時']]
       }
     });
   }
@@ -68,7 +68,7 @@ export async function appendRows(rows: string[][]) {
 
   const result = await sheets.spreadsheets.values.append({
     spreadsheetId: SPREADSHEET_ID,
-    range: '取引データ!A:H',
+    range: '取引データ!A:K',
     valueInputOption: 'RAW',
     insertDataOption: 'INSERT_ROWS',
     requestBody: {
@@ -86,7 +86,7 @@ export async function getAllRows() {
 
   const result = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
-    range: '取引データ!A:H',
+    range: '取引データ!A:K',
   });
 
   const rows = result.data.values || [];
@@ -95,13 +95,16 @@ export async function getAllRows() {
   return rows.slice(1).map((row, index) => ({
     rowIndex: index + 2, // スプレッドシートの行番号（1-indexed + header）
     transaction_date: row[0] || '',
-    card_brand: row[1] || '',
-    transaction_type: row[2] || '',
-    amount: parseInt(row[3]) || 0,
-    slip_number: row[4] || '',
-    approval_number: row[5] || '',
-    confidence: row[6] || '',
-    created_at: row[7] || '',
+    card_number: row[1] || '',
+    slip_number: row[2] || '',
+    transaction_content: row[3] || '',
+    payment_type: row[4] || '',
+    terminal_number: row[5] || '',
+    card_brand: row[6] || '',
+    amount: parseInt(row[7]) || 0,
+    clerk: row[8] || '',
+    confidence: row[9] || '',
+    created_at: row[10] || '',
   }));
 }
 
@@ -110,7 +113,7 @@ export async function updateRow(rowIndex: number, data: string[]) {
   const sheets = getSheets();
   await sheets.spreadsheets.values.update({
     spreadsheetId: SPREADSHEET_ID,
-    range: `取引データ!A${rowIndex}:H${rowIndex}`,
+    range: `取引データ!A${rowIndex}:K${rowIndex}`,
     valueInputOption: 'RAW',
     requestBody: {
       values: [data],
@@ -124,7 +127,159 @@ export async function deleteRow(rowIndex: number) {
   const sheets = getSheets();
   await sheets.spreadsheets.values.clear({
     spreadsheetId: SPREADSHEET_ID,
-    range: `取引データ!A${rowIndex}:H${rowIndex}`,
+    range: `取引データ!A${rowIndex}:K${rowIndex}`,
   });
   return true;
+}
+
+// 集計シートを作成・更新
+export async function createSummarySheets() {
+  const sheets = getSheets();
+  await initSheet();
+
+  // スプレッドシートの情報を取得
+  const spreadsheet = await sheets.spreadsheets.get({
+    spreadsheetId: SPREADSHEET_ID,
+  });
+
+  const sheetNames = spreadsheet.data.sheets?.map(s => s.properties?.title) || [];
+
+  // 日別集計シートがなければ作成
+  if (!sheetNames.includes('日別集計')) {
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: SPREADSHEET_ID,
+      requestBody: {
+        requests: [{
+          addSheet: {
+            properties: { title: '日別集計' }
+          }
+        }]
+      }
+    });
+  }
+
+  // 月別集計シートがなければ作成
+  if (!sheetNames.includes('月別集計')) {
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: SPREADSHEET_ID,
+      requestBody: {
+        requests: [{
+          addSheet: {
+            properties: { title: '月別集計' }
+          }
+        }]
+      }
+    });
+  }
+
+  // 取引データを取得
+  const allRows = await getAllRows();
+
+  // 日別集計データを計算
+  const dailySummary = calculateDailySummary(allRows);
+  // 月別集計データを計算
+  const monthlySummary = calculateMonthlySummary(allRows);
+
+  // 日別集計シートを更新
+  await sheets.spreadsheets.values.clear({
+    spreadsheetId: SPREADSHEET_ID,
+    range: '日別集計!A:Z',
+  });
+
+  const dailyHeaders = ['日付', 'カード会社', '支払区分', '端末番号', '件数', '合計金額'];
+  const dailyValues = [dailyHeaders, ...dailySummary];
+
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SPREADSHEET_ID,
+    range: '日別集計!A1',
+    valueInputOption: 'RAW',
+    requestBody: {
+      values: dailyValues,
+    },
+  });
+
+  // 月別集計シートを更新
+  await sheets.spreadsheets.values.clear({
+    spreadsheetId: SPREADSHEET_ID,
+    range: '月別集計!A:Z',
+  });
+
+  const monthlyHeaders = ['年月', 'カード会社', '支払区分', '端末番号', '件数', '合計金額'];
+  const monthlyValues = [monthlyHeaders, ...monthlySummary];
+
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SPREADSHEET_ID,
+    range: '月別集計!A1',
+    valueInputOption: 'RAW',
+    requestBody: {
+      values: monthlyValues,
+    },
+  });
+
+  return true;
+}
+
+// 日別集計を計算
+function calculateDailySummary(rows: any[]) {
+  const summary: { [key: string]: { count: number; total: number } } = {};
+
+  for (const row of rows) {
+    const date = row.transaction_date || '不明';
+    const cardBrand = row.card_brand || '不明';
+    const paymentType = row.payment_type || '不明';
+    const terminalNumber = row.terminal_number || '不明';
+    const amount = row.amount || 0;
+
+    const key = `${date}|${cardBrand}|${paymentType}|${terminalNumber}`;
+
+    if (!summary[key]) {
+      summary[key] = { count: 0, total: 0 };
+    }
+    summary[key].count++;
+    summary[key].total += amount;
+  }
+
+  const result: string[][] = [];
+  for (const [key, value] of Object.entries(summary)) {
+    const [date, cardBrand, paymentType, terminalNumber] = key.split('|');
+    result.push([date, cardBrand, paymentType, terminalNumber, String(value.count), String(value.total)]);
+  }
+
+  // 日付でソート
+  result.sort((a, b) => a[0].localeCompare(b[0]));
+
+  return result;
+}
+
+// 月別集計を計算
+function calculateMonthlySummary(rows: any[]) {
+  const summary: { [key: string]: { count: number; total: number } } = {};
+
+  for (const row of rows) {
+    const date = row.transaction_date || '';
+    const yearMonth = date.length >= 7 ? date.substring(0, 7) : '不明';
+    const cardBrand = row.card_brand || '不明';
+    const paymentType = row.payment_type || '不明';
+    const terminalNumber = row.terminal_number || '不明';
+    const amount = row.amount || 0;
+
+    const key = `${yearMonth}|${cardBrand}|${paymentType}|${terminalNumber}`;
+
+    if (!summary[key]) {
+      summary[key] = { count: 0, total: 0 };
+    }
+    summary[key].count++;
+    summary[key].total += amount;
+  }
+
+  const result: string[][] = [];
+  for (const [key, value] of Object.entries(summary)) {
+    const [yearMonth, cardBrand, paymentType, terminalNumber] = key.split('|');
+    result.push([yearMonth, cardBrand, paymentType, terminalNumber, String(value.count), String(value.total)]);
+  }
+
+  // 年月でソート
+  result.sort((a, b) => a[0].localeCompare(b[0]));
+
+  return result;
 }
