@@ -100,14 +100,16 @@ export async function getAllRows() {
   return rows.slice(1).map((row, index) => ({
     rowIndex: index + 2, // スプレッドシートの行番号（1-indexed + header）
     transaction_date: row[0] || '',
+    card_brand: row[5] || '',
+    transaction_type: row[2] || '', // フロントエンド互換（取引内容）
+    amount: parseInt(row[6]) || 0,
     slip_number: row[1] || '',
-    transaction_content: row[2] || '',
+    approval_number: null, // 廃止項目
+    confidence: row[8] || '',
+    // 追加項目
     payment_type: row[3] || '',
     terminal_number: row[4] || '',
-    card_brand: row[5] || '',
-    amount: parseInt(row[6]) || 0,
     clerk: row[7] || '',
-    confidence: row[8] || '',
     created_at: row[9] || '',
   }));
 }

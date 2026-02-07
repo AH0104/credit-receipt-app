@@ -16,13 +16,13 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const { records } = await request.json();
-    // records: Array<{ transaction_date, slip_number, transaction_content, payment_type, terminal_number, card_brand, amount, clerk, confidence }>
+    // records: フロントエンドからは transaction_type で来る
 
     const now = new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
     const rows = records.map((r: any) => [
       r.transaction_date || '',
       r.slip_number || '',
-      r.transaction_content || '',
+      r.transaction_type || '', // フロントエンドからは transaction_type
       r.payment_type || '',
       r.terminal_number || '',
       r.card_brand || '',
@@ -52,7 +52,7 @@ export async function PUT(request: NextRequest) {
     const row = [
       data.transaction_date || '',
       data.slip_number || '',
-      data.transaction_content || '',
+      data.transaction_type || '', // フロントエンドからは transaction_type
       data.payment_type || '',
       data.terminal_number || '',
       data.card_brand || '',
