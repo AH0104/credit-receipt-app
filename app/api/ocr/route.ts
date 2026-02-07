@@ -103,6 +103,7 @@ JSONのみを返し、マークダウンや説明文は含めないでくださ�
           clerk: null,
           fileName: image.fileName,
           error: true,
+          errorMessage: err.message || 'Unknown error', // デバッグ用
         });
       }
     }
