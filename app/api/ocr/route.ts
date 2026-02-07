@@ -72,8 +72,19 @@ JSONのみを返し、マークダウンや説明文は含めないでくださ�
         const items = Array.isArray(parsed) ? parsed : [parsed];
 
         items.forEach((item: any) => {
+          // フロントエンドのフィールド名に合わせてマッピング
           results.push({
-            ...item,
+            transaction_date: item.transaction_date,
+            card_brand: item.card_brand,
+            transaction_type: item.transaction_content, // フロントエンド互換
+            amount: item.amount,
+            slip_number: item.slip_number,
+            approval_number: null, // 廃止項目
+            confidence: item.confidence,
+            // 追加項目（スプレッドシート用）
+            payment_type: item.payment_type,
+            terminal_number: item.terminal_number,
+            clerk: item.clerk,
             fileName: image.fileName,
           });
         });
@@ -81,16 +92,18 @@ JSONのみを返し、マークダウンや説明文は含めないでくださ�
         console.error('OCR error for', image.fileName, err);
         results.push({
           transaction_date: null,
+          card_brand: null,
+          transaction_type: null,
+          amount: null,
           slip_number: null,
-          transaction_content: null,
+          approval_number: null,
+          confidence: 'low',
           payment_type: null,
           terminal_number: null,
-          card_brand: null,
-          amount: null,
           clerk: null,
-          confidence: 'low',
           fileName: image.fileName,
-          error: err.message,
+          error: true,
+          errorMessage: err.message || 'Unknown error', // デバッグ用
         });
       }
     }
