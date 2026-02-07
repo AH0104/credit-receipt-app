@@ -60,14 +60,33 @@ JSONのみを返し、マークダウンや説明文は含めないでくださ�
         ]);
 
         const text = result.response.text();
+        console.log('Gemini raw response:', text.substring(0, 500)); // デバッグ用
+
         // JSONを抽出（マークダウンのコードブロックを除去）
         let clean = text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
-        // JSONオブジェクトの開始・終了位置を探す
+
+        // JSONオブジェクトを正確に抽出（ブレースのネストを追跡）
         const jsonStart = clean.indexOf('{');
-        const jsonEnd = clean.lastIndexOf('}');
-        if (jsonStart !== -1 && jsonEnd !== -1) {
-          clean = clean.substring(jsonStart, jsonEnd + 1);
+        if (jsonStart === -1) {
+          throw new Error('JSON not found in response');
         }
+
+        let braceCount = 0;
+        let jsonEnd = -1;
+        for (let i = jsonStart; i < clean.length; i++) {
+          if (clean[i] === '{') braceCount++;
+          if (clean[i] === '}') braceCount--;
+          if (braceCount === 0) {
+            jsonEnd = i;
+            break;
+          }
+        }
+
+        if (jsonEnd === -1) {
+          throw new Error('Invalid JSON structure');
+        }
+
+        clean = clean.substring(jsonStart, jsonEnd + 1);
         const parsed = JSON.parse(clean);
         const items = Array.isArray(parsed) ? parsed : [parsed];
 
