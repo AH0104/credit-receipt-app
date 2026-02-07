@@ -132,6 +132,49 @@ export default function CreditReceiptApp() {
     });
   };
 
+  // Resize image to reduce payload size
+  const resizeImage = (file: File, maxWidth = 1600, maxHeight = 1600, quality = 0.8): Promise<{ base64: string; mimeType: string }> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const reader = new FileReader();
+
+      reader.onload = (e) => {
+        img.onload = () => {
+          let { width, height } = img;
+
+          // Calculate new dimensions
+          if (width > maxWidth || height > maxHeight) {
+            const ratio = Math.min(maxWidth / width, maxHeight / height);
+            width = Math.round(width * ratio);
+            height = Math.round(height * ratio);
+          }
+
+          // Create canvas and resize
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            reject(new Error('Canvas context not available'));
+            return;
+          }
+          ctx.drawImage(img, 0, 0, width, height);
+
+          // Convert to base64
+          const dataUrl = canvas.toDataURL('image/jpeg', quality);
+          resolve({
+            base64: dataUrl.split(',')[1],
+            mimeType: 'image/jpeg',
+          });
+        };
+        img.onerror = reject;
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
   // Handle photo upload & OCR
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -143,7 +186,8 @@ export default function CreditReceiptApp() {
     const images = [];
     for (let i = 0; i < files.length; i++) {
       setProcessStatus(`画像を準備中... ${i + 1}/${files.length}`);
-      const { base64, mimeType } = await fileToBase64(files[i]);
+      // 画像をリサイズしてペイロードサイズを削減
+      const { base64, mimeType } = await resizeImage(files[i]);
       images.push({ base64, mimeType, fileName: files[i].name });
     }
 
