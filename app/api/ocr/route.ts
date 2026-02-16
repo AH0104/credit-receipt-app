@@ -7,7 +7,7 @@ export async function POST(request: NextRequest) {
     // images: Array<{ base64: string, mimeType: string, fileName: string }>
 
     if (!images || images.length === 0) {
-      return NextResponse.json({ error: '画像がありません' }, { status: 400 });
+      return NextResponse.json({ error: 'ファイルがありません' }, { status: 400 });
     }
 
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
@@ -17,7 +17,8 @@ export async function POST(request: NextRequest) {
 
     for (const image of images) {
       try {
-        const prompt = `この画像に含まれる全てのクレジットカード加盟店控え（レシート）を読み取ってください。
+        const isPdf = image.mimeType === 'application/pdf';
+        const prompt = `この${isPdf ? 'PDF' : '画像'}に含まれる全てのクレジットカード加盟店控え（レシート）を読み取ってください。
 複数枚ある場合は全て抽出し、JSON配列で返してください。
 JSONのみを返し、マークダウンや説明文は含めないでください。
 
@@ -54,7 +55,7 @@ JSONのみを返し、マークダウンや説明文は含めないでくださ�
 
 注意:
 - カード番号は絶対に抽出しないこと
-- 画像内の全てのレシートを漏れなく抽出すること`;
+- ${isPdf ? 'PDF内の全ページを確認し、' : '画像内の'}全てのレシートを漏れなく抽出すること`;
 
         const result = await model.generateContent([
           prompt,

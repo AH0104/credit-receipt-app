@@ -175,7 +175,10 @@ export default function CreditReceiptApp() {
     });
   };
 
-  // Handle photo upload & OCR
+  // Check if file is PDF
+  const isPdf = (file: File) => file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+
+  // Handle photo/PDF upload & OCR
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
@@ -185,13 +188,19 @@ export default function CreditReceiptApp() {
 
     const images = [];
     for (let i = 0; i < files.length; i++) {
-      setProcessStatus(`画像を準備中... ${i + 1}/${files.length}`);
-      // 画像をリサイズしてペイロードサイズを削減
-      const { base64, mimeType } = await resizeImage(files[i]);
-      images.push({ base64, mimeType, fileName: files[i].name });
+      setProcessStatus(`ファイルを準備中... ${i + 1}/${files.length}`);
+      if (isPdf(files[i])) {
+        // PDFはリサイズせずそのままbase64変換
+        const { base64, mimeType } = await fileToBase64(files[i]);
+        images.push({ base64, mimeType: mimeType || 'application/pdf', fileName: files[i].name });
+      } else {
+        // 画像をリサイズしてペイロードサイズを削減
+        const { base64, mimeType } = await resizeImage(files[i]);
+        images.push({ base64, mimeType, fileName: files[i].name });
+      }
     }
 
-    setProcessStatus(`AI読取中... (${images.length}枚)`);
+    setProcessStatus(`AI読取中... (${images.length}件)`);
 
     try {
       const res = await fetch('/api/ocr', {
@@ -458,17 +467,17 @@ export default function CreditReceiptApp() {
           <div>
             <div style={{ textAlign: 'center', margin: '24px 0' }}>
               <h2 style={{ fontSize: 20, fontWeight: 700, color: c.text, margin: 0 }}>加盟店控えを読み取り</h2>
-              <p style={{ color: c.muted, fontSize: 13, marginTop: 6 }}>スマホで撮影した写真をアップロード → AIが自動読取</p>
+              <p style={{ color: c.muted, fontSize: 13, marginTop: 6 }}>写真やPDFをアップロード → AIが自動読取</p>
             </div>
 
             <div
               onClick={() => fileRef.current?.click()}
               style={{ background: c.card, border: `2px dashed ${c.border}`, borderRadius: 16, padding: '44px 20px', textAlign: 'center', cursor: 'pointer' }}
             >
-              <div style={{ fontSize: 44, marginBottom: 10 }}>📷</div>
-              <div style={{ fontSize: 15, fontWeight: 600, color: c.text }}>タップして写真を選択</div>
-              <div style={{ fontSize: 12, color: c.muted, marginTop: 4 }}>複数枚まとめて選択OK（JPEG / PNG）</div>
-              <input ref={fileRef} type="file" accept="image/*" multiple onChange={handleUpload} style={{ display: 'none' }} />
+              <div style={{ fontSize: 44, marginBottom: 10 }}>📄</div>
+              <div style={{ fontSize: 15, fontWeight: 600, color: c.text }}>タップしてファイルを選択</div>
+              <div style={{ fontSize: 12, color: c.muted, marginTop: 4 }}>複数まとめて選択OK（JPEG / PNG / PDF）</div>
+              <input ref={fileRef} type="file" accept="image/*,application/pdf,.pdf" multiple onChange={handleUpload} style={{ display: 'none' }} />
             </div>
 
             {processing && (
@@ -480,8 +489,8 @@ export default function CreditReceiptApp() {
             <div style={{ background: c.card, borderRadius: 12, padding: 20, border: `1px solid ${c.border}`, marginTop: 20 }}>
               <h3 style={{ fontSize: 14, fontWeight: 700, color: c.text, margin: '0 0 14px' }}>📖 使い方</h3>
               {[
-                { s: '1', t: 'レシートを撮影', d: '加盟店控え（ピンクの紙）をスマホで撮影。複数枚並べてもOK。' },
-                { s: '2', t: 'アップロード', d: '上をタップして写真を選択。まとめて選べます。' },
+                { s: '1', t: 'レシートを撮影 / PDFを用意', d: '加盟店控え（ピンクの紙）をスマホで撮影、またはPDFファイルを用意。' },
+                { s: '2', t: 'アップロード', d: '上をタップして写真またはPDFを選択。まとめて選べます。' },
                 { s: '3', t: 'AI自動読取', d: '日付・カード会社・金額をAIが読み取ります。' },
                 { s: '4', t: '確認 → 保存', d: '一覧で確認・修正して「保存」ボタンでスプレッドシートに反映。' },
               ].map((item) => (
@@ -517,9 +526,9 @@ export default function CreditReceiptApp() {
                 onClick={() => fileRef.current?.click()}
                 style={{ flex: 1, padding: '10px', background: c.primaryLight, border: `1px dashed ${c.primary}`, borderRadius: 8, color: c.primary, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}
               >
-                📷 追加読取
+                📄 追加読取
               </button>
-              <input ref={fileRef} type="file" accept="image/*" multiple onChange={handleUpload} style={{ display: 'none' }} />
+              <input ref={fileRef} type="file" accept="image/*,application/pdf,.pdf" multiple onChange={handleUpload} style={{ display: 'none' }} />
 
               {unsavedCount > 0 && (
                 <button
