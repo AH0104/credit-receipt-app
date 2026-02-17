@@ -19,10 +19,10 @@ create table public.user_profiles (
 
 create index idx_user_profiles_role on public.user_profiles (role);
 
--- updated_at トリガー
+-- updated_at トリガー（supabase-schema.sql で定義済みの handle_updated_at を使用）
 create trigger set_user_profiles_updated_at
   before update on public.user_profiles
-  for each row execute function public.update_updated_at();
+  for each row execute function public.handle_updated_at();
 
 -- RLS 有効化
 alter table public.user_profiles enable row level security;
