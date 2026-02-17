@@ -107,7 +107,7 @@ export default function RecordsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-background/50">
-                <th className="text-left px-3 py-2.5 font-semibold text-muted text-xs">日付</th>
+                <th className="text-left px-3 py-2.5 font-semibold text-muted text-xs">取引日</th>
                 <th className="text-left px-3 py-2.5 font-semibold text-muted text-xs">カード</th>
                 <th className="text-left px-3 py-2.5 font-semibold text-muted text-xs">区分</th>
                 <th className="text-right px-3 py-2.5 font-semibold text-muted text-xs">金額</th>
@@ -115,6 +115,7 @@ export default function RecordsPage() {
                 <th className="text-left px-3 py-2.5 font-semibold text-muted text-xs">支払方法</th>
                 <th className="text-left px-3 py-2.5 font-semibold text-muted text-xs">端末</th>
                 <th className="text-left px-3 py-2.5 font-semibold text-muted text-xs">係員</th>
+                <th className="text-left px-3 py-2.5 font-semibold text-muted text-xs">アップロード日</th>
                 <th className="text-center px-3 py-2.5 font-semibold text-muted text-xs w-20">操作</th>
               </tr>
             </thead>
@@ -198,6 +199,9 @@ export default function RecordsPage() {
                           className="h-8 text-xs"
                         />
                       </td>
+                      <td className="px-2 py-1.5 text-xs text-muted whitespace-nowrap">
+                        {new Date(t.created_at).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' })}
+                      </td>
                       <td className="px-2 py-1.5">
                         <div className="flex gap-1 justify-center">
                           <button
@@ -256,6 +260,9 @@ export default function RecordsPage() {
                     <td className="px-3 py-2 text-muted">{t.payment_type || '---'}</td>
                     <td className="px-3 py-2 text-muted">{t.terminal_number || '---'}</td>
                     <td className="px-3 py-2 text-muted">{t.clerk || '---'}</td>
+                    <td className="px-3 py-2 text-muted text-xs whitespace-nowrap">
+                      {new Date(t.created_at).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' })}
+                    </td>
                     <td className="px-3 py-2 text-center text-border">
                       <span className="text-xs">{isArchived ? '確定済' : 'クリックで編集'}</span>
                     </td>
