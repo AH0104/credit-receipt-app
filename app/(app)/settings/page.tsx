@@ -428,18 +428,18 @@ export default function SettingsPage() {
               />
             </div>
             <div>
-              <Label>パスワード（アルファベット1文字＋数字4桁）</Label>
+              <Label>パスワード（アルファベット1文字＋数字5桁）</Label>
               <Input
                 value={newUserForm.password}
                 onChange={(e) => {
-                  const v = e.target.value.slice(0, 5);
+                  const v = e.target.value.slice(0, 6);
                   setNewUserForm({ ...newUserForm, password: v });
                 }}
-                placeholder="例: A1234"
-                maxLength={5}
+                placeholder="例: A12345"
+                maxLength={6}
                 className="mt-1 font-mono"
               />
-              <p className="text-[11px] text-muted mt-1">例: A1234, k5678</p>
+              <p className="text-[11px] text-muted mt-1">例: A12345, k56789</p>
             </div>
             <div>
               <Label>表示名</Label>

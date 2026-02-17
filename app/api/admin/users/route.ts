@@ -31,9 +31,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'ユーザーIDは数字3桁で入力してください' }, { status: 400 });
   }
 
-  // バリデーション: パスワードはアルファベット1文字 + 数字4桁
-  if (!/^[a-zA-Z][0-9]{4}$/.test(password)) {
-    return NextResponse.json({ error: 'パスワードはアルファベット1文字＋数字4桁で入力してください' }, { status: 400 });
+  // バリデーション: パスワードはアルファベット1文字 + 数字5桁
+  if (!/^[a-zA-Z][0-9]{5}$/.test(password)) {
+    return NextResponse.json({ error: 'パスワードはアルファベット1文字＋数字5桁で入力してください' }, { status: 400 });
   }
 
   if (!['admin', 'editor', 'viewer'].includes(role)) {
