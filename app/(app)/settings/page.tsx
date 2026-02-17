@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Plus, Trash2, Save, Loader2, FileText, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,9 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { useToast } from '@/components/layout/toast-provider';
 import { useCardGroups } from '@/lib/hooks/use-card-groups';
 import { useUploadLogs } from '@/lib/hooks/use-upload-logs';
+import { useTransactions } from '@/lib/hooks/use-transactions';
 import type { CardBrandGroup } from '@/lib/types/card-group';
-
-const ALL_BRANDS = ['JCB', 'VISA', 'Mastercard', 'AMEX', 'Diners', 'その他'];
 
 interface GroupForm {
   id?: string;
@@ -23,7 +22,17 @@ interface GroupForm {
 export default function SettingsPage() {
   const { groups, loading: groupsLoading, upsert, remove } = useCardGroups();
   const { logs, loading: logsLoading } = useUploadLogs();
+  const { transactions, loading: txnLoading } = useTransactions();
   const { showToast } = useToast();
+
+  // 明細データから実際に使われているカード会社名を動的に抽出
+  const allBrands = useMemo(() => {
+    const brandSet = new Set<string>();
+    for (const t of transactions) {
+      if (t.card_brand) brandSet.add(t.card_brand);
+    }
+    return Array.from(brandSet).sort();
+  }, [transactions]);
 
   const [editDialog, setEditDialog] = useState(false);
   const [form, setForm] = useState<GroupForm>({ group_name: '', brands: [] });
@@ -215,28 +224,32 @@ export default function SettingsPage() {
             </div>
             <div>
               <Label>所属ブランド</Label>
-              <div className="mt-2 space-y-2">
-                {ALL_BRANDS.map((brand) => {
-                  const isAssigned = assignedBrands.includes(brand);
-                  const isChecked = form.brands.includes(brand);
-                  return (
-                    <label
-                      key={brand}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-colors ${
-                        isChecked ? 'bg-primary-light border-primary' : 'border-border hover:bg-background'
-                      } ${isAssigned ? 'opacity-40 cursor-not-allowed' : ''}`}
-                    >
-                      <Checkbox
-                        checked={isChecked}
-                        onCheckedChange={() => !isAssigned && toggleBrand(brand)}
-                        disabled={isAssigned}
-                      />
-                      <span className="text-sm">{brand}</span>
-                      {isAssigned && <span className="text-[10px] text-muted ml-auto">他グループに所属</span>}
-                    </label>
-                  );
-                })}
-              </div>
+              {allBrands.length === 0 ? (
+                <p className="mt-2 text-xs text-muted">明細にカード会社のデータがありません。先にレシートを読み取ってください。</p>
+              ) : (
+                <div className="mt-2 space-y-2">
+                  {allBrands.map((brand) => {
+                    const isAssigned = assignedBrands.includes(brand);
+                    const isChecked = form.brands.includes(brand);
+                    return (
+                      <label
+                        key={brand}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-colors ${
+                          isChecked ? 'bg-primary-light border-primary' : 'border-border hover:bg-background'
+                        } ${isAssigned ? 'opacity-40 cursor-not-allowed' : ''}`}
+                      >
+                        <Checkbox
+                          checked={isChecked}
+                          onCheckedChange={() => !isAssigned && toggleBrand(brand)}
+                          disabled={isAssigned}
+                        />
+                        <span className="text-sm">{brand}</span>
+                        {isAssigned && <span className="text-[10px] text-muted ml-auto">他グループに所属</span>}
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
             </div>
             <div className="flex gap-2 justify-end">
               <Button variant="outline" onClick={() => setEditDialog(false)}>キャンセル</Button>
