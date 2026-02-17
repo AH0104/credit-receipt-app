@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Download, Trash2, Check, X, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -8,20 +8,33 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useToast } from '@/components/layout/toast-provider';
 import { useTransactions } from '@/lib/hooks/use-transactions';
+import { useUserProfile } from '@/lib/hooks/use-user-profile';
 import { getBrandInfo, formatYen, isCancel } from '@/lib/constants/card-brands';
 import { exportToCsv } from '@/lib/utils/csv-export';
 import type { Transaction } from '@/lib/types/transaction';
 
+type FilterMode = 'all' | 'active' | 'archived';
+
 export default function RecordsPage() {
   const { transactions, loading, update, remove } = useTransactions();
+  const { permissions } = useUserProfile();
   const { showToast } = useToast();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editFields, setEditFields] = useState<Partial<Transaction>>({});
   const [deleteTarget, setDeleteTarget] = useState<Transaction | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [filter, setFilter] = useState<FilterMode>('all');
   const router = useRouter();
 
-  const totalAmount = transactions.reduce((sum, r) => {
+  const filtered = useMemo(() => {
+    if (filter === 'active') return transactions.filter((t) => !t.archived_period_id);
+    if (filter === 'archived') return transactions.filter((t) => !!t.archived_period_id);
+    return transactions;
+  }, [transactions, filter]);
+
+  const archivedCount = useMemo(() => transactions.filter((t) => !!t.archived_period_id).length, [transactions]);
+
+  const totalAmount = filtered.reduce((sum, r) => {
     const sign = isCancel(r.transaction_content) ? -1 : 1;
     return sum + (r.amount || 0) * sign;
   }, 0);
@@ -80,7 +93,7 @@ export default function RecordsPage() {
         <div className="flex items-center gap-6">
           <h1 className="text-lg font-bold text-foreground">取引一覧</h1>
           <span className="text-sm text-muted">
-            {transactions.length}件 ・ 合計 <span className="font-semibold text-primary">{formatYen(totalAmount)}</span>
+            {filtered.length}件 ・ 合計 <span className="font-semibold text-primary">{formatYen(totalAmount)}</span>
           </span>
         </div>
         <div className="flex gap-2">
@@ -89,7 +102,7 @@ export default function RecordsPage() {
             追加読取
           </Button>
           {transactions.length > 0 && (
-            <Button variant="outline" size="sm" onClick={() => exportToCsv(transactions)}>
+            <Button variant="outline" size="sm" onClick={() => exportToCsv(filtered)}>
               <Download className="h-4 w-4 mr-1" />
               CSV
             </Button>
@@ -97,8 +110,31 @@ export default function RecordsPage() {
         </div>
       </div>
 
+      {/* フィルタ */}
+      {archivedCount > 0 && (
+        <div className="flex gap-1">
+          {([
+            { key: 'all', label: `すべて (${transactions.length})` },
+            { key: 'active', label: `未確定 (${transactions.length - archivedCount})` },
+            { key: 'archived', label: `確定済 (${archivedCount})` },
+          ] as const).map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => setFilter(key)}
+              className={`px-3 py-1.5 text-xs rounded-md border transition-colors ${
+                filter === key
+                  ? 'bg-primary text-white border-primary'
+                  : 'bg-card border-border text-muted hover:bg-primary-light/20'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* テーブル */}
-      {transactions.length === 0 ? (
+      {filtered.length === 0 ? (
         <div className="text-center py-16 text-muted text-sm">
           データがありません。「読取」タブから写真をアップロードしてください。
         </div>
@@ -120,7 +156,7 @@ export default function RecordsPage() {
               </tr>
             </thead>
             <tbody>
-              {transactions.map((t) => {
+              {filtered.map((t) => {
                 const brand = getBrandInfo(t.card_brand);
                 const cancel = isCancel(t.transaction_content);
                 const isArchived = !!t.archived_period_id;
@@ -234,9 +270,9 @@ export default function RecordsPage() {
                 return (
                   <tr
                     key={t.id}
-                    onClick={() => !isArchived && startEdit(t)}
+                    onClick={() => !isArchived && permissions.canEditRecords && startEdit(t)}
                     className={`border-b border-border last:border-b-0 transition-colors ${
-                      isArchived ? 'opacity-50' : 'hover:bg-primary-light/20 cursor-pointer'
+                      isArchived || !permissions.canEditRecords ? 'opacity-50' : 'hover:bg-primary-light/20 cursor-pointer'
                     }`}
                   >
                     <td className="px-3 py-2 text-foreground whitespace-nowrap">
@@ -264,7 +300,7 @@ export default function RecordsPage() {
                       {new Date(t.created_at).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' })}
                     </td>
                     <td className="px-3 py-2 text-center text-border">
-                      <span className="text-xs">{isArchived ? '確定済' : 'クリックで編集'}</span>
+                      <span className="text-xs">{isArchived ? '確定済' : permissions.canEditRecords ? 'クリックで編集' : '閲覧のみ'}</span>
                     </td>
                   </tr>
                 );

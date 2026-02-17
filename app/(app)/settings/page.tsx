@@ -1,17 +1,21 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Plus, Trash2, Save, Loader2, FileText, Clock } from 'lucide-react';
+import { Plus, Trash2, Save, Loader2, FileText, Clock, Users, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useToast } from '@/components/layout/toast-provider';
 import { useCardGroups } from '@/lib/hooks/use-card-groups';
 import { useUploadLogs } from '@/lib/hooks/use-upload-logs';
 import { useTransactions } from '@/lib/hooks/use-transactions';
+import { useUserProfile, useUserManagement } from '@/lib/hooks/use-user-profile';
+import { ROLE_PERMISSIONS } from '@/lib/types/user-profile';
 import type { CardBrandGroup } from '@/lib/types/card-group';
+import type { UserRole } from '@/lib/types/user-profile';
 
 interface GroupForm {
   id?: string;
@@ -23,6 +27,8 @@ export default function SettingsPage() {
   const { groups, loading: groupsLoading, upsert, remove } = useCardGroups();
   const { logs, loading: logsLoading } = useUploadLogs();
   const { transactions, loading: txnLoading } = useTransactions();
+  const { profile, isAdmin } = useUserProfile();
+  const { users, loading: usersLoading, updateRole, toggleActive } = useUserManagement();
   const { showToast } = useToast();
 
   // 明細データから実際に使われているカード会社名を動的に抽出
@@ -90,8 +96,144 @@ export default function SettingsPage() {
     setDeleteTarget(null);
   };
 
+  const handleRoleChange = async (userId: string, role: UserRole) => {
+    try {
+      await updateRole(userId, role);
+      showToast('ロールを変更しました');
+    } catch {
+      showToast('変更に失敗しました');
+    }
+  };
+
+  const handleToggleActive = async (userId: string, isActive: boolean) => {
+    try {
+      await toggleActive(userId, isActive);
+      showToast(isActive ? 'ユーザーを有効化しました' : 'ユーザーを無効化しました');
+    } catch {
+      showToast('変更に失敗しました');
+    }
+  };
+
+  const roleBadgeVariant = (role: string) => {
+    switch (role) {
+      case 'admin': return 'destructive' as const;
+      case 'editor': return 'warning' as const;
+      default: return 'secondary' as const;
+    }
+  };
+
   return (
     <div className="space-y-8">
+      {/* ユーザー管理（admin のみ） */}
+      {isAdmin && (
+        <section>
+          <div className="mb-4">
+            <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              ユーザー管理
+            </h2>
+            <p className="text-sm text-muted mt-0.5">
+              登録ユーザーのロール変更と有効/無効の切り替え
+            </p>
+          </div>
+
+          {usersLoading ? (
+            <div className="flex items-center justify-center py-10">
+              <Loader2 className="h-5 w-5 animate-spin text-muted" />
+            </div>
+          ) : (
+            <div className="bg-card rounded-lg border border-border overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-background/50">
+                    <th className="text-left px-4 py-2.5 font-semibold text-muted text-xs">ユーザー</th>
+                    <th className="text-left px-4 py-2.5 font-semibold text-muted text-xs">メール</th>
+                    <th className="text-center px-4 py-2.5 font-semibold text-muted text-xs">ロール</th>
+                    <th className="text-center px-4 py-2.5 font-semibold text-muted text-xs">状態</th>
+                    <th className="text-left px-4 py-2.5 font-semibold text-muted text-xs">登録日</th>
+                    <th className="text-center px-4 py-2.5 font-semibold text-muted text-xs w-28">操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map((u) => {
+                    const isSelf = u.id === profile?.id;
+                    return (
+                      <tr key={u.id} className={`border-b border-border last:border-b-0 ${!u.is_active ? 'opacity-50' : ''}`}>
+                        <td className="px-4 py-2.5 font-semibold">
+                          <div className="flex items-center gap-2">
+                            {u.display_name || '---'}
+                            {isSelf && <span className="text-[10px] text-primary font-normal">(自分)</span>}
+                          </div>
+                        </td>
+                        <td className="px-4 py-2.5 text-muted text-xs">{u.email}</td>
+                        <td className="px-4 py-2.5 text-center">
+                          {isSelf ? (
+                            <Badge variant={roleBadgeVariant(u.role)}>{ROLE_PERMISSIONS[u.role].label}</Badge>
+                          ) : (
+                            <select
+                              value={u.role}
+                              onChange={(e) => handleRoleChange(u.id, e.target.value as UserRole)}
+                              className="h-7 rounded border border-border bg-card px-2 text-xs"
+                            >
+                              <option value="admin">管理者</option>
+                              <option value="editor">編集者</option>
+                              <option value="viewer">閲覧者</option>
+                            </select>
+                          )}
+                        </td>
+                        <td className="px-4 py-2.5 text-center">
+                          <Badge variant={u.is_active ? 'success' : 'secondary'}>
+                            {u.is_active ? '有効' : '無効'}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-2.5 text-muted text-xs whitespace-nowrap">
+                          {new Date(u.created_at).toLocaleDateString('ja-JP')}
+                        </td>
+                        <td className="px-4 py-2.5 text-center">
+                          {!isSelf && (
+                            <button
+                              onClick={() => handleToggleActive(u.id, !u.is_active)}
+                              className={`text-xs px-2 py-1 rounded ${
+                                u.is_active
+                                  ? 'text-accent hover:bg-accent-light'
+                                  : 'text-success hover:bg-success-light'
+                              }`}
+                            >
+                              {u.is_active ? '無効化' : '有効化'}
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+
+              {/* ロール説明 */}
+              <div className="border-t border-border p-4 bg-background/30">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Shield className="h-4 w-4 text-muted" />
+                  <span className="text-xs font-semibold text-muted">ロール別権限</span>
+                </div>
+                <div className="grid grid-cols-3 gap-3 text-xs">
+                  {(['admin', 'editor', 'viewer'] as const).map((role) => {
+                    const perm = ROLE_PERMISSIONS[role];
+                    return (
+                      <div key={role} className="bg-card rounded border border-border p-2.5">
+                        <div className="font-semibold mb-1">
+                          <Badge variant={roleBadgeVariant(role)} className="text-[10px]">{perm.label}</Badge>
+                        </div>
+                        <p className="text-muted leading-relaxed">{perm.description}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
+      )}
+
       {/* カード会社グループ設定 */}
       <section>
         <div className="flex items-center justify-between mb-4">

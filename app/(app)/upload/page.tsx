@@ -11,6 +11,7 @@ import { useTransactions } from '@/lib/hooks/use-transactions';
 import { useUploadLogs } from '@/lib/hooks/use-upload-logs';
 import { isPdf, fileToBase64, resizeImage } from '@/lib/utils/image-resize';
 import { getBrandInfo, formatYen, isCancel, getConfidenceBadge } from '@/lib/constants/card-brands';
+import { RoleGuard } from '@/components/auth/role-guard';
 import type { PendingRecord } from '@/lib/types/transaction';
 
 interface PendingWithMeta extends PendingRecord {
@@ -146,6 +147,7 @@ export default function UploadPage() {
   const validCount = pendingRecords.filter((r) => !r.error).length;
 
   return (
+    <RoleGuard require="canUpload">
     <div className="space-y-5">
       <div className="text-center pt-4">
         <h1 className="text-xl font-bold text-foreground">加盟店控えを読み取り</h1>
@@ -280,5 +282,6 @@ export default function UploadPage() {
         </div>
       )}
     </div>
+    </RoleGuard>
   );
 }

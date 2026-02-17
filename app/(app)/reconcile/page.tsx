@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Plus, Archive, Loader2, Check, AlertTriangle, Minus, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,6 +11,8 @@ import { useToast } from '@/components/layout/toast-provider';
 import { useReconciliation, type PeriodWithEntries } from '@/lib/hooks/use-reconciliation';
 import { useCardGroups } from '@/lib/hooks/use-card-groups';
 import { formatYen } from '@/lib/constants/card-brands';
+import { RoleGuard } from '@/components/auth/role-guard';
+import type { ReconciliationEntry } from '@/lib/types/reconciliation';
 
 function getStatusBadge(status: string) {
   switch (status) {
@@ -28,6 +30,71 @@ function getEntryStatusIcon(status: string) {
     case 'resolved': return <Check className="h-4 w-4 text-primary" />;
     default: return <Minus className="h-4 w-4 text-muted" />;
   }
+}
+
+function EntryRow({
+  entry: e,
+  isArchived,
+  onExpectedBlur,
+  onNoteBlur,
+}: {
+  entry: ReconciliationEntry;
+  isArchived: boolean;
+  onExpectedBlur: (val: number) => void;
+  onNoteBlur: (val: string) => void;
+}) {
+  const [expectedLocal, setExpectedLocal] = useState<string>(e.expected_amount ? String(e.expected_amount) : '');
+  const [noteLocal, setNoteLocal] = useState<string>(e.note || '');
+
+  // Sync from server when entry data changes (e.g., after computeActuals)
+  useEffect(() => {
+    setExpectedLocal(e.expected_amount ? String(e.expected_amount) : '');
+  }, [e.expected_amount]);
+  useEffect(() => {
+    setNoteLocal(e.note || '');
+  }, [e.note]);
+
+  return (
+    <tr className="border-b border-border last:border-b-0">
+      <td className="px-3 py-2 text-center">{getEntryStatusIcon(e.status)}</td>
+      <td className="px-3 py-2 font-semibold">{e.group_label}</td>
+      <td className="px-3 py-2 text-right font-mono tabular-nums">{formatYen(e.actual_amount)}</td>
+      <td className="px-3 py-1.5 text-right">
+        {isArchived ? (
+          <span className="font-mono tabular-nums">{formatYen(e.expected_amount)}</span>
+        ) : (
+          <Input
+            type="number"
+            value={expectedLocal}
+            onChange={(ev) => setExpectedLocal(ev.target.value)}
+            onBlur={() => onExpectedBlur(Number(expectedLocal) || 0)}
+            className="h-8 text-xs text-right w-28 inline-block"
+            placeholder="入金額"
+          />
+        )}
+      </td>
+      <td className={`px-3 py-2 text-right font-mono tabular-nums font-semibold ${
+        e.difference === 0 ? 'text-success' : 'text-accent'
+      }`}>
+        {e.expected_amount > 0 ? (
+          e.difference === 0 ? '一致' : formatYen(e.difference)
+        ) : '---'}
+      </td>
+      <td className="px-3 py-1.5">
+        {isArchived ? (
+          <span className="text-xs text-muted">{e.note || ''}</span>
+        ) : (
+          <Input
+            value={noteLocal}
+            onChange={(ev) => setNoteLocal(ev.target.value)}
+            onBlur={() => onNoteBlur(noteLocal)}
+            className="h-8 text-xs w-full"
+            placeholder="手数料、翌月回し等"
+          />
+        )}
+      </td>
+    </tr>
+  );
 }
 
 export default function ReconcilePage() {
@@ -112,13 +179,12 @@ export default function ReconcilePage() {
     setComputing(false);
   };
 
-  const handleExpectedChange = async (entryId: string, value: number) => {
-    const entry = activePeriod?.reconciliation_entries.find((e) => e.id === entryId);
-    if (!entry || !activePeriod) return;
+  const handleExpectedBlur = async (entry: ReconciliationEntry, value: number) => {
+    if (!activePeriod || value === entry.expected_amount) return;
 
     const status = value === entry.actual_amount ? 'matched' : (value > 0 ? 'mismatched' : 'pending');
     await upsertEntry({
-      id: entryId,
+      id: entry.id,
       period_id: activePeriod.id,
       group_label: entry.group_label,
       expected_amount: value,
@@ -128,12 +194,11 @@ export default function ReconcilePage() {
     });
   };
 
-  const handleNoteChange = async (entryId: string, note: string) => {
-    const entry = activePeriod?.reconciliation_entries.find((e) => e.id === entryId);
-    if (!entry || !activePeriod) return;
+  const handleNoteBlur = async (entry: ReconciliationEntry, note: string) => {
+    if (!activePeriod || note === (entry.note || '')) return;
 
     await upsertEntry({
-      id: entryId,
+      id: entry.id,
       period_id: activePeriod.id,
       group_label: entry.group_label,
       expected_amount: entry.expected_amount,
@@ -169,6 +234,7 @@ export default function ReconcilePage() {
   const totalDiff = totalActual - totalExpected;
 
   return (
+    <RoleGuard require="canReconcile">
     <div className="space-y-4">
       {/* ヘッダー */}
       <div className="flex items-center justify-between">
@@ -251,48 +317,15 @@ export default function ReconcilePage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {entries.map((e) => {
-                    const isArchived = activePeriod.status === 'archived';
-                    return (
-                      <tr key={e.id} className="border-b border-border last:border-b-0">
-                        <td className="px-3 py-2 text-center">{getEntryStatusIcon(e.status)}</td>
-                        <td className="px-3 py-2 font-semibold">{e.group_label}</td>
-                        <td className="px-3 py-2 text-right font-mono tabular-nums">{formatYen(e.actual_amount)}</td>
-                        <td className="px-3 py-1.5 text-right">
-                          {isArchived ? (
-                            <span className="font-mono tabular-nums">{formatYen(e.expected_amount)}</span>
-                          ) : (
-                            <Input
-                              type="number"
-                              value={e.expected_amount || ''}
-                              onChange={(ev) => handleExpectedChange(e.id, Number(ev.target.value) || 0)}
-                              className="h-8 text-xs text-right w-28 inline-block"
-                              placeholder="入金額"
-                            />
-                          )}
-                        </td>
-                        <td className={`px-3 py-2 text-right font-mono tabular-nums font-semibold ${
-                          e.difference === 0 ? 'text-success' : 'text-accent'
-                        }`}>
-                          {e.expected_amount > 0 ? (
-                            e.difference === 0 ? '一致' : formatYen(e.difference)
-                          ) : '---'}
-                        </td>
-                        <td className="px-3 py-1.5">
-                          {isArchived ? (
-                            <span className="text-xs text-muted">{e.note || ''}</span>
-                          ) : (
-                            <Input
-                              value={e.note || ''}
-                              onChange={(ev) => handleNoteChange(e.id, ev.target.value)}
-                              className="h-8 text-xs w-full"
-                              placeholder="手数料、翌月回し等"
-                            />
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
+                  {entries.map((e) => (
+                    <EntryRow
+                      key={e.id}
+                      entry={e}
+                      isArchived={activePeriod.status === 'archived'}
+                      onExpectedBlur={(val) => handleExpectedBlur(e, val)}
+                      onNoteBlur={(val) => handleNoteBlur(e, val)}
+                    />
+                  ))}
                   {/* 合計行 */}
                   <tr className="bg-primary-light/30 font-bold">
                     <td className="px-3 py-2.5"></td>
@@ -374,5 +407,6 @@ export default function ReconcilePage() {
         </DialogContent>
       </Dialog>
     </div>
+    </RoleGuard>
   );
 }
