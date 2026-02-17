@@ -40,6 +40,7 @@ export async function middleware(request: NextRequest) {
     !user &&
     !pathname.startsWith('/login') &&
     !pathname.startsWith('/signup') &&
+    !pathname.startsWith('/auth/callback') &&
     !pathname.startsWith('/api/')
   ) {
     const url = request.nextUrl.clone();
