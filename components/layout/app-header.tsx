@@ -3,13 +3,15 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { Camera, List, BarChart3, LogOut } from 'lucide-react';
+import { Camera, List, BarChart3, Scale, Settings, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const tabs = [
   { href: '/upload', icon: Camera, label: '読取' },
   { href: '/records', icon: List, label: '一覧' },
   { href: '/summary', icon: BarChart3, label: '集計' },
+  { href: '/reconcile', icon: Scale, label: '照合' },
+  { href: '/settings', icon: Settings, label: '設定' },
 ];
 
 export function AppHeader() {

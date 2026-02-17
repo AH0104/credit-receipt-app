@@ -122,6 +122,7 @@ export default function RecordsPage() {
               {transactions.map((t) => {
                 const brand = getBrandInfo(t.card_brand);
                 const cancel = isCancel(t.transaction_content);
+                const isArchived = !!t.archived_period_id;
                 const isEditing = editingId === t.id;
 
                 if (isEditing) {
@@ -229,8 +230,10 @@ export default function RecordsPage() {
                 return (
                   <tr
                     key={t.id}
-                    onClick={() => startEdit(t)}
-                    className="border-b border-border last:border-b-0 hover:bg-primary-light/20 cursor-pointer transition-colors"
+                    onClick={() => !isArchived && startEdit(t)}
+                    className={`border-b border-border last:border-b-0 transition-colors ${
+                      isArchived ? 'opacity-50' : 'hover:bg-primary-light/20 cursor-pointer'
+                    }`}
                   >
                     <td className="px-3 py-2 text-foreground whitespace-nowrap">
                       {t.transaction_date || '---'}
@@ -254,7 +257,7 @@ export default function RecordsPage() {
                     <td className="px-3 py-2 text-muted">{t.terminal_number || '---'}</td>
                     <td className="px-3 py-2 text-muted">{t.clerk || '---'}</td>
                     <td className="px-3 py-2 text-center text-border">
-                      <span className="text-xs">クリックで編集</span>
+                      <span className="text-xs">{isArchived ? '確定済' : 'クリックで編集'}</span>
                     </td>
                   </tr>
                 );

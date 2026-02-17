@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { Loader2 } from 'lucide-react';
 import { useTransactions } from '@/lib/hooks/use-transactions';
+import { useCardGroups } from '@/lib/hooks/use-card-groups';
 import { jaAggregators, jaLocaleStrings } from '@/lib/pivot-locale-ja';
 import 'react-pivottable/pivottable.css';
 
@@ -57,6 +58,7 @@ function createJaRenderers(renderers: Record<string, any>) {
 
 export default function SummaryPage() {
   const { transactions, loading } = useTransactions();
+  const { getBrandGroup, loading: groupsLoading } = useCardGroups();
   const [pivotState, setPivotState] = useState<any>({});
   const [renderers, setRenderers] = useState<Record<string, any> | null>(null);
 
@@ -68,7 +70,7 @@ export default function SummaryPage() {
   }, []);
 
   // Transform transactions to Japanese-labeled flat objects for pivot
-  // Derive year/month fields for flexible time-based grouping
+  // Derive year/month, brand group fields for flexible grouping
   const pivotData = useMemo(() => {
     return transactions.map((t) => {
       const date = t.transaction_date || '';
@@ -79,17 +81,19 @@ export default function SummaryPage() {
         '年月': year && month ? `${year}/${month}` : '不明',
         '月': month ? `${Number(month)}月` : '不明',
         'カード会社': t.card_brand || '不明',
+        '入金先': getBrandGroup(t.card_brand),
         '区分': t.transaction_content || '売上',
         '金額': t.amount || 0,
         '伝票番号': t.slip_number || '',
         '支払方法': t.payment_type || '',
         '端末番号': t.terminal_number || '',
         '係員': t.clerk || '',
+        '状態': t.archived_period_id ? 'アーカイブ済' : '未確定',
       };
     });
-  }, [transactions]);
+  }, [transactions, getBrandGroup]);
 
-  if (loading || !renderers) {
+  if (loading || groupsLoading || !renderers) {
     return (
       <div className="flex items-center justify-center py-20">
         <Loader2 className="h-6 w-6 animate-spin text-muted" />

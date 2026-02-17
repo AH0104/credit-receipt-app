@@ -32,7 +32,7 @@ export function useTransactions() {
     fetch();
   }, [fetch]);
 
-  const insert = async (records: Partial<Transaction>[]) => {
+  const insert = async (records: Partial<Transaction>[], uploadLogId?: string) => {
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -50,6 +50,7 @@ export function useTransactions() {
       clerk: r.clerk || null,
       confidence: r.confidence || 'medium',
       file_name: r.file_name || null,
+      upload_log_id: uploadLogId || null,
     }));
 
     const { data, error: err } = await supabase
