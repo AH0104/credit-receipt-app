@@ -35,7 +35,7 @@ export function AppHeader() {
   });
 
   return (
-    <header className="bg-primary text-white">
+    <header className="bg-primary text-white sticky top-0 z-30">
       <div className="max-w-app mx-auto flex items-center justify-between px-4 h-14">
         {/* ロゴ */}
         <div className="flex items-center gap-2 shrink-0">

@@ -184,9 +184,9 @@ export default function RecordsPage() {
             : 'データがありません。「読取」タブから写真をアップロードしてください。'}
         </div>
       ) : (
-        <div className="bg-card rounded-lg border border-border overflow-hidden">
+        <div className="bg-card rounded-lg border border-border">
           <table className="w-full text-sm">
-            <thead className="sticky top-0 z-10">
+            <thead className="sticky top-14 z-10">
               <tr className="border-b border-border bg-card">
                 <th className="text-left px-3 py-2.5 font-semibold text-muted text-xs">取引日</th>
                 <th className="text-left px-3 py-2.5 font-semibold text-muted text-xs">カード</th>
