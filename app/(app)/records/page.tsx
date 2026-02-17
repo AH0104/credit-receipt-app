@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Download, Trash2, Check, X, Loader2 } from 'lucide-react';
+import { Plus, Download, Trash2, Check, X, Loader2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -16,7 +16,11 @@ import type { Transaction } from '@/lib/types/transaction';
 type FilterMode = 'all' | 'active' | 'archived';
 
 export default function RecordsPage() {
-  const { transactions, loading, update, remove } = useTransactions();
+  const {
+    transactions, loading, update, remove,
+    page, setPage, totalCount, totalPages, pageSize,
+    yearMonth, changeYearMonth, yearMonthOptions,
+  } = useTransactions();
   const { permissions } = useUserProfile();
   const { showToast } = useToast();
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -77,6 +81,10 @@ export default function RecordsPage() {
     setDeleting(false);
   };
 
+  // ページネーション表示用の範囲
+  const rangeStart = totalCount === 0 ? 0 : (page - 1) * pageSize + 1;
+  const rangeEnd = Math.min(page * pageSize, totalCount);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -93,7 +101,7 @@ export default function RecordsPage() {
         <div className="flex items-center gap-6">
           <h1 className="text-lg font-bold text-foreground">取引一覧</h1>
           <span className="text-sm text-muted">
-            {filtered.length}件 ・ 合計 <span className="font-semibold text-primary">{formatYen(totalAmount)}</span>
+            {totalCount}件 ・ 合計 <span className="font-semibold text-primary">{formatYen(totalAmount)}</span>
           </span>
         </div>
         <div className="flex gap-2">
@@ -110,7 +118,42 @@ export default function RecordsPage() {
         </div>
       </div>
 
-      {/* フィルタ */}
+      {/* 年月フィルタ */}
+      {yearMonthOptions.length > 0 && (
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-semibold text-muted">期間</span>
+          <div className="flex gap-1 flex-wrap">
+            <button
+              onClick={() => changeYearMonth(null)}
+              className={`px-3 py-1.5 text-xs rounded-md border transition-colors ${
+                yearMonth === null
+                  ? 'bg-primary text-white border-primary'
+                  : 'bg-card border-border text-muted hover:bg-primary-light/20'
+              }`}
+            >
+              すべて
+            </button>
+            {yearMonthOptions.map((opt) => {
+              const key = `${opt.year}-${String(opt.month).padStart(2, '0')}`;
+              return (
+                <button
+                  key={key}
+                  onClick={() => changeYearMonth(key)}
+                  className={`px-3 py-1.5 text-xs rounded-md border transition-colors ${
+                    yearMonth === key
+                      ? 'bg-primary text-white border-primary'
+                      : 'bg-card border-border text-muted hover:bg-primary-light/20'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* 確定/未確定フィルタ */}
       {archivedCount > 0 && (
         <div className="flex gap-1">
           {([
@@ -136,7 +179,9 @@ export default function RecordsPage() {
       {/* テーブル */}
       {filtered.length === 0 ? (
         <div className="text-center py-16 text-muted text-sm">
-          データがありません。「読取」タブから写真をアップロードしてください。
+          {yearMonth
+            ? 'この期間のデータはありません。'
+            : 'データがありません。「読取」タブから写真をアップロードしてください。'}
         </div>
       ) : (
         <div className="bg-card rounded-lg border border-border overflow-hidden">
@@ -307,6 +352,52 @@ export default function RecordsPage() {
               })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* ページネーション */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between pt-2">
+          <span className="text-xs text-muted">
+            {rangeStart}〜{rangeEnd} / {totalCount}件
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setPage(1)}
+              disabled={page === 1}
+              className="p-1.5 rounded border border-border bg-card text-muted hover:bg-primary-light/20 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              title="最初のページ"
+            >
+              <ChevronsLeft className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => setPage(page - 1)}
+              disabled={page === 1}
+              className="p-1.5 rounded border border-border bg-card text-muted hover:bg-primary-light/20 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              title="前のページ"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <span className="px-3 py-1 text-xs font-semibold text-foreground">
+              {page} / {totalPages}
+            </span>
+            <button
+              onClick={() => setPage(page + 1)}
+              disabled={page === totalPages}
+              className="p-1.5 rounded border border-border bg-card text-muted hover:bg-primary-light/20 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              title="次のページ"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => setPage(totalPages)}
+              disabled={page === totalPages}
+              className="p-1.5 rounded border border-border bg-card text-muted hover:bg-primary-light/20 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              title="最後のページ"
+            >
+              <ChevronsRight className="h-4 w-4" />
+            </button>
+          </div>
         </div>
       )}
 
