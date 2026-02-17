@@ -68,17 +68,25 @@ export default function SummaryPage() {
   }, []);
 
   // Transform transactions to Japanese-labeled flat objects for pivot
+  // Derive year/month fields for flexible time-based grouping
   const pivotData = useMemo(() => {
-    return transactions.map((t) => ({
-      '取引日': t.transaction_date || '不明',
-      'カード会社': t.card_brand || '不明',
-      '区分': t.transaction_content || '売上',
-      '金額': t.amount || 0,
-      '伝票番号': t.slip_number || '',
-      '支払方法': t.payment_type || '',
-      '端末番号': t.terminal_number || '',
-      '係員': t.clerk || '',
-    }));
+    return transactions.map((t) => {
+      const date = t.transaction_date || '';
+      const [year, month] = date.split('-');
+      return {
+        '取引日': date || '不明',
+        '年': year || '不明',
+        '年月': year && month ? `${year}/${month}` : '不明',
+        '月': month ? `${Number(month)}月` : '不明',
+        'カード会社': t.card_brand || '不明',
+        '区分': t.transaction_content || '売上',
+        '金額': t.amount || 0,
+        '伝票番号': t.slip_number || '',
+        '支払方法': t.payment_type || '',
+        '端末番号': t.terminal_number || '',
+        '係員': t.clerk || '',
+      };
+    });
   }, [transactions]);
 
   if (loading || !renderers) {
