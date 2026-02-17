@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Plus, Trash2, Save, Loader2, FileText, Clock, Users, Shield } from 'lucide-react';
+import { Plus, Trash2, Save, Loader2, FileText, Clock, Users, Shield, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -23,12 +23,23 @@ interface GroupForm {
   brands: string[];
 }
 
+interface NewUserForm {
+  loginId: string;
+  password: string;
+  displayName: string;
+  role: UserRole;
+}
+
+function extractLoginId(email: string): string {
+  return email.replace(/@internal$/, '');
+}
+
 export default function SettingsPage() {
   const { groups, loading: groupsLoading, upsert, remove } = useCardGroups();
   const { logs, loading: logsLoading } = useUploadLogs();
   const { transactions, loading: txnLoading } = useTransactions();
   const { profile, isAdmin } = useUserProfile();
-  const { users, loading: usersLoading, updateRole, toggleActive } = useUserManagement();
+  const { users, loading: usersLoading, updateRole, toggleActive, createUser, deleteUser } = useUserManagement();
   const { showToast } = useToast();
 
   // 明細データから実際に使われているカード会社名を動的に抽出
@@ -44,6 +55,14 @@ export default function SettingsPage() {
   const [form, setForm] = useState<GroupForm>({ group_name: '', brands: [] });
   const [deleteTarget, setDeleteTarget] = useState<CardBrandGroup | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // ユーザー追加ダイアログ
+  const [addUserDialog, setAddUserDialog] = useState(false);
+  const [newUserForm, setNewUserForm] = useState<NewUserForm>({ loginId: '', password: '', displayName: '', role: 'viewer' });
+  const [addingUser, setAddingUser] = useState(false);
+
+  // ユーザー削除確認
+  const [deleteUserTarget, setDeleteUserTarget] = useState<{ id: string; name: string } | null>(null);
 
   // Brands already assigned to other groups (not the current one being edited)
   const assignedBrands = groups
@@ -114,6 +133,34 @@ export default function SettingsPage() {
     }
   };
 
+  const handleAddUser = async () => {
+    if (!newUserForm.loginId || !newUserForm.password) {
+      showToast('IDとパスワードを入力してください');
+      return;
+    }
+    setAddingUser(true);
+    try {
+      await createUser(newUserForm.loginId, newUserForm.password, newUserForm.displayName, newUserForm.role);
+      showToast(`ユーザー ${newUserForm.loginId} を追加しました`);
+      setAddUserDialog(false);
+      setNewUserForm({ loginId: '', password: '', displayName: '', role: 'viewer' });
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : '追加に失敗しました');
+    }
+    setAddingUser(false);
+  };
+
+  const handleDeleteUser = async () => {
+    if (!deleteUserTarget) return;
+    try {
+      await deleteUser(deleteUserTarget.id);
+      showToast('ユーザーを削除しました');
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : '削除に失敗しました');
+    }
+    setDeleteUserTarget(null);
+  };
+
   const roleBadgeVariant = (role: string) => {
     switch (role) {
       case 'admin': return 'destructive' as const;
@@ -127,14 +174,20 @@ export default function SettingsPage() {
       {/* ユーザー管理（admin のみ） */}
       {isAdmin && (
         <section>
-          <div className="mb-4">
-            <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
-              <Users className="h-5 w-5" />
-              ユーザー管理
-            </h2>
-            <p className="text-sm text-muted mt-0.5">
-              登録ユーザーのロール変更と有効/無効の切り替え
-            </p>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                ユーザー管理
+              </h2>
+              <p className="text-sm text-muted mt-0.5">
+                ユーザーの追加・ロール変更・有効/無効の切り替え
+              </p>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => setAddUserDialog(true)}>
+              <UserPlus className="h-4 w-4 mr-1" />
+              ユーザー追加
+            </Button>
           </div>
 
           {usersLoading ? (
@@ -146,26 +199,26 @@ export default function SettingsPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border bg-background/50">
-                    <th className="text-left px-4 py-2.5 font-semibold text-muted text-xs">ユーザー</th>
-                    <th className="text-left px-4 py-2.5 font-semibold text-muted text-xs">メール</th>
+                    <th className="text-center px-4 py-2.5 font-semibold text-muted text-xs w-16">ID</th>
+                    <th className="text-left px-4 py-2.5 font-semibold text-muted text-xs">名前</th>
                     <th className="text-center px-4 py-2.5 font-semibold text-muted text-xs">ロール</th>
                     <th className="text-center px-4 py-2.5 font-semibold text-muted text-xs">状態</th>
-                    <th className="text-left px-4 py-2.5 font-semibold text-muted text-xs">登録日</th>
                     <th className="text-center px-4 py-2.5 font-semibold text-muted text-xs w-28">操作</th>
                   </tr>
                 </thead>
                 <tbody>
                   {users.map((u) => {
                     const isSelf = u.id === profile?.id;
+                    const loginId = extractLoginId(u.email);
                     return (
                       <tr key={u.id} className={`border-b border-border last:border-b-0 ${!u.is_active ? 'opacity-50' : ''}`}>
+                        <td className="px-4 py-2.5 text-center font-mono font-semibold">{loginId}</td>
                         <td className="px-4 py-2.5 font-semibold">
                           <div className="flex items-center gap-2">
                             {u.display_name || '---'}
                             {isSelf && <span className="text-[10px] text-primary font-normal">(自分)</span>}
                           </div>
                         </td>
-                        <td className="px-4 py-2.5 text-muted text-xs">{u.email}</td>
                         <td className="px-4 py-2.5 text-center">
                           {isSelf ? (
                             <Badge variant={roleBadgeVariant(u.role)}>{ROLE_PERMISSIONS[u.role].label}</Badge>
@@ -186,21 +239,26 @@ export default function SettingsPage() {
                             {u.is_active ? '有効' : '無効'}
                           </Badge>
                         </td>
-                        <td className="px-4 py-2.5 text-muted text-xs whitespace-nowrap">
-                          {new Date(u.created_at).toLocaleDateString('ja-JP')}
-                        </td>
                         <td className="px-4 py-2.5 text-center">
                           {!isSelf && (
-                            <button
-                              onClick={() => handleToggleActive(u.id, !u.is_active)}
-                              className={`text-xs px-2 py-1 rounded ${
-                                u.is_active
-                                  ? 'text-accent hover:bg-accent-light'
-                                  : 'text-success hover:bg-success-light'
-                              }`}
-                            >
-                              {u.is_active ? '無効化' : '有効化'}
-                            </button>
+                            <div className="flex gap-1 justify-center">
+                              <button
+                                onClick={() => handleToggleActive(u.id, !u.is_active)}
+                                className={`text-xs px-2 py-1 rounded ${
+                                  u.is_active
+                                    ? 'text-accent hover:bg-accent-light'
+                                    : 'text-success hover:bg-success-light'
+                                }`}
+                              >
+                                {u.is_active ? '無効化' : '有効化'}
+                              </button>
+                              <button
+                                onClick={() => setDeleteUserTarget({ id: u.id, name: u.display_name || loginId })}
+                                className="text-xs px-2 py-1 rounded text-accent hover:bg-accent-light"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
                           )}
                         </td>
                       </tr>
@@ -346,6 +404,90 @@ export default function SettingsPage() {
           </div>
         )}
       </section>
+
+      {/* ユーザー追加ダイアログ */}
+      <Dialog open={addUserDialog} onOpenChange={setAddUserDialog}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>ユーザーを追加</DialogTitle>
+            <DialogDescription>IDとパスワードを設定してください</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>ユーザーID（数字3桁）</Label>
+              <Input
+                value={newUserForm.loginId}
+                onChange={(e) => {
+                  const v = e.target.value.replace(/[^0-9]/g, '').slice(0, 3);
+                  setNewUserForm({ ...newUserForm, loginId: v });
+                }}
+                placeholder="例: 001"
+                inputMode="numeric"
+                maxLength={3}
+                className="mt-1 font-mono"
+              />
+            </div>
+            <div>
+              <Label>パスワード（アルファベット1文字＋数字4桁）</Label>
+              <Input
+                value={newUserForm.password}
+                onChange={(e) => {
+                  const v = e.target.value.slice(0, 5);
+                  setNewUserForm({ ...newUserForm, password: v });
+                }}
+                placeholder="例: A1234"
+                maxLength={5}
+                className="mt-1 font-mono"
+              />
+              <p className="text-[11px] text-muted mt-1">例: A1234, k5678</p>
+            </div>
+            <div>
+              <Label>表示名</Label>
+              <Input
+                value={newUserForm.displayName}
+                onChange={(e) => setNewUserForm({ ...newUserForm, displayName: e.target.value })}
+                placeholder="例: 田中太郎"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label>ロール</Label>
+              <select
+                value={newUserForm.role}
+                onChange={(e) => setNewUserForm({ ...newUserForm, role: e.target.value as UserRole })}
+                className="mt-1 w-full h-9 rounded border border-border bg-card px-3 text-sm"
+              >
+                <option value="viewer">閲覧者</option>
+                <option value="editor">編集者</option>
+                <option value="admin">管理者</option>
+              </select>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setAddUserDialog(false)}>キャンセル</Button>
+              <Button onClick={handleAddUser} disabled={addingUser}>
+                <UserPlus className="h-4 w-4 mr-1" />
+                {addingUser ? '追加中...' : '追加'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ユーザー削除確認ダイアログ */}
+      <Dialog open={!!deleteUserTarget} onOpenChange={() => setDeleteUserTarget(null)}>
+        <DialogContent className="max-w-xs">
+          <DialogHeader>
+            <DialogTitle>ユーザーを削除しますか？</DialogTitle>
+            <DialogDescription>
+              「{deleteUserTarget?.name}」を完全に削除します。この操作は取り消せません。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-2 justify-end">
+            <Button variant="outline" onClick={() => setDeleteUserTarget(null)}>キャンセル</Button>
+            <Button variant="destructive" onClick={handleDeleteUser}>削除する</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* グループ編集ダイアログ */}
       <Dialog open={editDialog} onOpenChange={setEditDialog}>

@@ -86,5 +86,27 @@ export function useUserManagement() {
     await fetch();
   };
 
-  return { users, loading, refetch: fetch, updateRole, toggleActive, updateDisplayName };
+  const createUser = async (loginId: string, password: string, displayName: string, role: UserRole) => {
+    const res = await window.fetch('/api/admin/users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ loginId, password, displayName, role }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    await fetch();
+    return data;
+  };
+
+  const deleteUser = async (userId: string) => {
+    const res = await window.fetch(`/api/admin/users?id=${userId}`, {
+      method: 'DELETE',
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    await fetch();
+    return data;
+  };
+
+  return { users, loading, refetch: fetch, updateRole, toggleActive, updateDisplayName, createUser, deleteUser };
 }

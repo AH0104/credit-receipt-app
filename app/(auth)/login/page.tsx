@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,7 +10,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Eye, EyeOff } from 'lucide-react';
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('');
+  const [userId, setUserId] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
@@ -24,17 +23,14 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
 
+    const email = `${userId}@internal`;
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
     if (error) {
-      setError(
-        error.message === 'Invalid login credentials'
-          ? 'メールアドレスまたはパスワードが間違っています'
-          : 'ログインに失敗しました。もう一度お試しください。'
-      );
+      setError('ユーザーIDまたはパスワードが間違っています');
       setLoading(false);
       return;
     }
@@ -53,15 +49,20 @@ export default function LoginPage() {
       <CardContent>
         <form onSubmit={handleLogin} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="email">メールアドレス</Label>
+            <Label htmlFor="userId">ユーザーID</Label>
             <Input
-              id="email"
-              type="email"
-              placeholder="example@company.co.jp"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              id="userId"
+              type="text"
+              inputMode="numeric"
+              placeholder="例: 001"
+              value={userId}
+              onChange={(e) => {
+                const v = e.target.value.replace(/[^0-9]/g, '').slice(0, 3);
+                setUserId(v);
+              }}
               required
-              autoComplete="email"
+              maxLength={3}
+              autoComplete="username"
             />
           </div>
           <div className="space-y-2">
@@ -96,11 +97,8 @@ export default function LoginPage() {
             {loading ? 'ログイン中...' : 'ログイン'}
           </Button>
 
-          <p className="text-center text-sm text-muted">
-            アカウントをお持ちでない方は{' '}
-            <Link href="/signup" className="text-primary font-semibold hover:underline">
-              新規登録
-            </Link>
+          <p className="text-center text-xs text-muted">
+            管理者からアカウントキーを受け取ってください
           </p>
         </form>
       </CardContent>

@@ -39,8 +39,6 @@ export async function middleware(request: NextRequest) {
   if (
     !user &&
     !pathname.startsWith('/login') &&
-    !pathname.startsWith('/signup') &&
-    !pathname.startsWith('/auth/callback') &&
     !pathname.startsWith('/api/')
   ) {
     const url = request.nextUrl.clone();
@@ -48,11 +46,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // 認証済みユーザーが認証ページにアクセスした場合はアプリへ
-  if (
-    user &&
-    (pathname.startsWith('/login') || pathname.startsWith('/signup'))
-  ) {
+  // 認証済みユーザーがログインページにアクセスした場合はアプリへ
+  if (user && pathname.startsWith('/login')) {
     const url = request.nextUrl.clone();
     url.pathname = '/upload';
     return NextResponse.redirect(url);
