@@ -184,7 +184,7 @@ export default function RecordsPage() {
             : 'データがありません。「読取」タブから写真をアップロードしてください。'}
         </div>
       ) : (
-        <div className="bg-card rounded-lg border border-border overflow-auto max-h-[calc(100vh-280px)]">
+        <div className="bg-card rounded-t-lg border border-b-0 border-border overflow-auto max-h-[calc(100vh-280px)]">
           <table className="w-full text-sm">
             <thead className="sticky top-0 z-10">
               <tr className="border-b border-border bg-background">
