@@ -19,12 +19,15 @@ export function useUserProfile() {
       return;
     }
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('user_profiles')
       .select('*')
       .eq('id', user.id)
       .single();
 
+    if (error) {
+      console.error('user_profiles fetch error:', error.message);
+    }
     setProfile(data as UserProfile | null);
     setLoading(false);
   }, [supabase]);
