@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: '無効なロールです' }, { status: 400 });
   }
 
-  const email = `${loginId}@internal`;
+  const email = `${loginId}@internal.local`;
   const adminSupabase = createAdminClient();
 
   // ユーザー作成（メール確認不要）

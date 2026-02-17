@@ -23,7 +23,7 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
 
-    const email = `${userId}@internal`;
+    const email = `${userId}@internal.local`;
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,

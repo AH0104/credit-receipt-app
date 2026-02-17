@@ -31,7 +31,7 @@ interface NewUserForm {
 }
 
 function extractLoginId(email: string): string {
-  return email.replace(/@internal$/, '');
+  return email.replace(/@internal\.local$/, '');
 }
 
 export default function SettingsPage() {
