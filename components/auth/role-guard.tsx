@@ -23,7 +23,7 @@ export function RoleGuard({ require, children, fallback }: RoleGuardProps) {
     );
   }
 
-  if (!profile?.is_active) {
+  if (profile && !profile.is_active) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-3">
         <ShieldAlert className="h-10 w-10 text-accent" />
