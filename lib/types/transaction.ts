@@ -11,6 +11,8 @@ export interface Transaction {
   clerk: string | null;
   confidence: string;
   file_name: string | null;
+  upload_log_id: string | null;
+  archived_period_id: string | null;
   created_at: string;
   updated_at: string;
 }

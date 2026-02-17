@@ -26,7 +26,7 @@
 
   --font-sans: 'Noto Sans JP', sans-serif;
 
-  --max-width-app: 720px;
+  --max-width-app: 1200px;
 }
 
 body {
@@ -35,4 +35,74 @@ body {
   font-family: var(--font-sans);
   margin: 0;
   padding: 0;
+}
+
+/* react-pivottable theme overrides */
+.pivot-container table.pvtTable {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  border-collapse: collapse;
+}
+
+.pivot-container table.pvtTable thead tr th,
+.pivot-container table.pvtTable tbody tr th {
+  background-color: var(--color-background);
+  border: 1px solid var(--color-border);
+  padding: 5px 8px;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.pivot-container table.pvtTable tbody tr td {
+  border: 1px solid var(--color-border);
+  padding: 4px 8px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.pivot-container .pvtUi {
+  font-family: var(--font-sans);
+}
+
+.pivot-container .pvtUi td {
+  vertical-align: top;
+}
+
+.pivot-container .pvtAxisContainer,
+.pivot-container .pvtVals {
+  border: 1px solid var(--color-border);
+  background: var(--color-background);
+  padding: 8px;
+  min-height: 60px;
+  border-radius: 6px;
+}
+
+.pivot-container .pvtAxisContainer li span.pvtAttr {
+  background: var(--color-primary-light);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 12px;
+  cursor: grab;
+  white-space: nowrap;
+}
+
+.pivot-container .pvtFilteredAttribute {
+  font-style: italic;
+}
+
+.pivot-container select.pvtRenderer,
+.pivot-container select.pvtAggregator {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 4px 8px;
+  background: white;
+}
+
+.pivot-container .pvtTotal,
+.pivot-container .pvtGrandTotal {
+  font-weight: 700;
+  background-color: var(--color-primary-light) !important;
 }

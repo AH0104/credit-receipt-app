@@ -1,31 +1,40 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Download, Pencil, Trash2, Check, X, Loader2 } from 'lucide-react';
+import { Plus, Download, Trash2, Check, X, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useToast } from '@/components/layout/toast-provider';
 import { useTransactions } from '@/lib/hooks/use-transactions';
-import { getBrandInfo, formatYen, isCancel, getConfidenceBadge } from '@/lib/constants/card-brands';
+import { useUserProfile } from '@/lib/hooks/use-user-profile';
+import { getBrandInfo, formatYen, isCancel } from '@/lib/constants/card-brands';
 import { exportToCsv } from '@/lib/utils/csv-export';
 import type { Transaction } from '@/lib/types/transaction';
 
+type FilterMode = 'all' | 'active' | 'archived';
+
 export default function RecordsPage() {
   const { transactions, loading, update, remove } = useTransactions();
+  const { permissions } = useUserProfile();
   const { showToast } = useToast();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editFields, setEditFields] = useState<Partial<Transaction>>({});
   const [deleteTarget, setDeleteTarget] = useState<Transaction | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
+  const [filter, setFilter] = useState<FilterMode>('all');
   const router = useRouter();
 
-  const totalAmount = transactions.reduce((sum, r) => {
+  const filtered = useMemo(() => {
+    if (filter === 'active') return transactions.filter((t) => !t.archived_period_id);
+    if (filter === 'archived') return transactions.filter((t) => !!t.archived_period_id);
+    return transactions;
+  }, [transactions, filter]);
+
+  const archivedCount = useMemo(() => transactions.filter((t) => !!t.archived_period_id).length, [transactions]);
+
+  const totalAmount = filtered.reduce((sum, r) => {
     const sign = isCancel(r.transaction_content) ? -1 : 1;
     return sum + (r.amount || 0) * sign;
   }, 0);
@@ -79,183 +88,225 @@ export default function RecordsPage() {
 
   return (
     <div className="space-y-4">
-      {/* 統計バー */}
-      <div className="flex gap-3">
-        <Card className="flex-1">
-          <CardContent className="p-3">
-            <div className="text-[10px] text-muted">総件数</div>
-            <div className="text-lg font-bold text-foreground">{transactions.length} 件</div>
-          </CardContent>
-        </Card>
-        <Card className="flex-1">
-          <CardContent className="p-3">
-            <div className="text-[10px] text-muted">合計金額</div>
-            <div className="text-lg font-bold text-primary">{formatYen(totalAmount)}</div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* アクションボタン */}
-      <div className="flex gap-2">
-        <Button
-          variant="dashed"
-          className="flex-1"
-          onClick={() => router.push('/upload')}
-        >
-          <Plus className="h-4 w-4 mr-1" />
-          追加読取
-        </Button>
-        {transactions.length > 0 && (
-          <Button
-            variant="outline"
-            onClick={() => exportToCsv(transactions)}
-          >
-            <Download className="h-4 w-4 mr-1" />
-            CSV
+      {/* ヘッダー行 */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-6">
+          <h1 className="text-lg font-bold text-foreground">取引一覧</h1>
+          <span className="text-sm text-muted">
+            {filtered.length}件 ・ 合計 <span className="font-semibold text-primary">{formatYen(totalAmount)}</span>
+          </span>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => router.push('/upload')}>
+            <Plus className="h-4 w-4 mr-1" />
+            追加読取
           </Button>
-        )}
+          {transactions.length > 0 && (
+            <Button variant="outline" size="sm" onClick={() => exportToCsv(filtered)}>
+              <Download className="h-4 w-4 mr-1" />
+              CSV
+            </Button>
+          )}
+        </div>
       </div>
 
-      {/* レコード一覧 */}
-      {transactions.length === 0 ? (
-        <Card className="py-10">
-          <CardContent className="text-center">
-            <div className="text-3xl mb-3">📋</div>
-            <p className="text-sm text-muted">データがありません。「読取」タブから写真をアップロードしてください。</p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-2">
-          {transactions.map((t) => {
-            const brand = getBrandInfo(t.card_brand);
-            const conf = getConfidenceBadge(t.confidence);
-            const cancel = isCancel(t.transaction_content);
-            const isEditing = editingId === t.id;
+      {/* フィルタ */}
+      {archivedCount > 0 && (
+        <div className="flex gap-1">
+          {([
+            { key: 'all', label: `すべて (${transactions.length})` },
+            { key: 'active', label: `未確定 (${transactions.length - archivedCount})` },
+            { key: 'archived', label: `確定済 (${archivedCount})` },
+          ] as const).map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => setFilter(key)}
+              className={`px-3 py-1.5 text-xs rounded-md border transition-colors ${
+                filter === key
+                  ? 'bg-primary text-white border-primary'
+                  : 'bg-card border-border text-muted hover:bg-primary-light/20'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
 
-            return (
-              <Card
-                key={t.id}
-                className={isEditing ? 'ring-2 ring-primary bg-primary-light/20' : ''}
-              >
-                <CardContent className="p-3">
-                  {isEditing ? (
-                    /* 編集モード */
-                    <div className="space-y-3">
-                      <div className="grid grid-cols-3 gap-2">
-                        <div>
-                          <Label>取引日</Label>
-                          <Input
-                            type="date"
-                            value={editFields.transaction_date || ''}
-                            onChange={(e) => setEditFields({ ...editFields, transaction_date: e.target.value })}
-                            className="h-9 text-sm mt-1"
-                          />
-                        </div>
-                        <div>
-                          <Label>カード会社</Label>
-                          <select
-                            value={editFields.card_brand || ''}
-                            onChange={(e) => setEditFields({ ...editFields, card_brand: e.target.value })}
-                            className="flex h-9 w-full rounded-lg border border-border bg-card px-2 text-sm mt-1"
-                          >
-                            <option value="">選択</option>
-                            <option value="JCB">JCB</option>
-                            <option value="VISA">VISA</option>
-                            <option value="Mastercard">Mastercard</option>
-                            <option value="AMEX">AMEX</option>
-                            <option value="Diners">Diners</option>
-                            <option value="その他">その他</option>
-                          </select>
-                        </div>
-                        <div>
-                          <Label>区分</Label>
-                          <select
-                            value={editFields.transaction_content || ''}
-                            onChange={(e) => setEditFields({ ...editFields, transaction_content: e.target.value })}
-                            className="flex h-9 w-full rounded-lg border border-border bg-card px-2 text-sm mt-1"
-                          >
-                            <option value="売上">売上</option>
-                            <option value="取消">取消</option>
-                            <option value="返品">返品</option>
-                          </select>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-3 gap-2">
-                        <div>
-                          <Label>金額</Label>
-                          <Input
-                            type="number"
-                            value={editFields.amount || ''}
-                            onChange={(e) => setEditFields({ ...editFields, amount: Number(e.target.value) || 0 })}
-                            className="h-9 text-sm mt-1"
-                          />
-                        </div>
-                        <div>
-                          <Label>伝票番号</Label>
-                          <Input
-                            value={editFields.slip_number || ''}
-                            onChange={(e) => setEditFields({ ...editFields, slip_number: e.target.value })}
-                            className="h-9 text-sm mt-1"
-                          />
-                        </div>
-                        <div>
-                          <Label>係員</Label>
-                          <Input
-                            value={editFields.clerk || ''}
-                            onChange={(e) => setEditFields({ ...editFields, clerk: e.target.value })}
-                            className="h-9 text-sm mt-1"
-                          />
-                        </div>
-                      </div>
-                      <div className="flex gap-2 justify-end">
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => { setDeleteTarget(t); setEditingId(null); }}
+      {/* テーブル */}
+      {filtered.length === 0 ? (
+        <div className="text-center py-16 text-muted text-sm">
+          データがありません。「読取」タブから写真をアップロードしてください。
+        </div>
+      ) : (
+        <div className="bg-card rounded-lg border border-border overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border bg-background/50">
+                <th className="text-left px-3 py-2.5 font-semibold text-muted text-xs">取引日</th>
+                <th className="text-left px-3 py-2.5 font-semibold text-muted text-xs">カード</th>
+                <th className="text-left px-3 py-2.5 font-semibold text-muted text-xs">区分</th>
+                <th className="text-right px-3 py-2.5 font-semibold text-muted text-xs">金額</th>
+                <th className="text-left px-3 py-2.5 font-semibold text-muted text-xs">伝票No</th>
+                <th className="text-left px-3 py-2.5 font-semibold text-muted text-xs">支払方法</th>
+                <th className="text-left px-3 py-2.5 font-semibold text-muted text-xs">端末</th>
+                <th className="text-left px-3 py-2.5 font-semibold text-muted text-xs">係員</th>
+                <th className="text-left px-3 py-2.5 font-semibold text-muted text-xs">アップロード日</th>
+                <th className="text-center px-3 py-2.5 font-semibold text-muted text-xs w-20">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((t) => {
+                const brand = getBrandInfo(t.card_brand);
+                const cancel = isCancel(t.transaction_content);
+                const isArchived = !!t.archived_period_id;
+                const isEditing = editingId === t.id;
+
+                if (isEditing) {
+                  return (
+                    <tr key={t.id} className="border-b border-border bg-primary-light/30">
+                      <td className="px-2 py-1.5">
+                        <Input
+                          type="date"
+                          value={editFields.transaction_date || ''}
+                          onChange={(e) => setEditFields({ ...editFields, transaction_date: e.target.value })}
+                          className="h-8 text-xs"
+                        />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <select
+                          value={editFields.card_brand || ''}
+                          onChange={(e) => setEditFields({ ...editFields, card_brand: e.target.value })}
+                          className="h-8 w-full rounded border border-border bg-card px-1.5 text-xs"
                         >
-                          <Trash2 className="h-3.5 w-3.5 mr-1" />
-                          削除
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={() => setEditingId(null)}>
-                          <X className="h-3.5 w-3.5 mr-1" />
-                          キャンセル
-                        </Button>
-                        <Button size="sm" onClick={saveEdit}>
-                          <Check className="h-3.5 w-3.5 mr-1" />
-                          保存
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    /* 表示モード */
-                    <div className="flex items-center gap-3 cursor-pointer" onClick={() => startEdit(t)}>
-                      <div
-                        className="w-11 h-7 rounded flex items-center justify-center text-white text-[10px] font-bold shrink-0"
+                          <option value="">--</option>
+                          <option value="JCB">JCB</option>
+                          <option value="VISA">VISA</option>
+                          <option value="Mastercard">MC</option>
+                          <option value="AMEX">AMEX</option>
+                          <option value="Diners">Diners</option>
+                          <option value="その他">その他</option>
+                        </select>
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <select
+                          value={editFields.transaction_content || ''}
+                          onChange={(e) => setEditFields({ ...editFields, transaction_content: e.target.value })}
+                          className="h-8 w-full rounded border border-border bg-card px-1.5 text-xs"
+                        >
+                          <option value="売上">売上</option>
+                          <option value="取消">取消</option>
+                          <option value="返品">返品</option>
+                        </select>
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <Input
+                          type="number"
+                          value={editFields.amount || ''}
+                          onChange={(e) => setEditFields({ ...editFields, amount: Number(e.target.value) || 0 })}
+                          className="h-8 text-xs text-right"
+                        />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <Input
+                          value={editFields.slip_number || ''}
+                          onChange={(e) => setEditFields({ ...editFields, slip_number: e.target.value })}
+                          className="h-8 text-xs"
+                        />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <Input
+                          value={editFields.payment_type || ''}
+                          onChange={(e) => setEditFields({ ...editFields, payment_type: e.target.value })}
+                          className="h-8 text-xs"
+                        />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <Input
+                          value={editFields.terminal_number || ''}
+                          onChange={(e) => setEditFields({ ...editFields, terminal_number: e.target.value })}
+                          className="h-8 text-xs"
+                        />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <Input
+                          value={editFields.clerk || ''}
+                          onChange={(e) => setEditFields({ ...editFields, clerk: e.target.value })}
+                          className="h-8 text-xs"
+                        />
+                      </td>
+                      <td className="px-2 py-1.5 text-xs text-muted whitespace-nowrap">
+                        {new Date(t.created_at).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' })}
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <div className="flex gap-1 justify-center">
+                          <button
+                            onClick={saveEdit}
+                            className="p-1.5 rounded hover:bg-success-light text-success transition-colors"
+                            title="保存"
+                          >
+                            <Check className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => setEditingId(null)}
+                            className="p-1.5 rounded hover:bg-background text-muted transition-colors"
+                            title="キャンセル"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => { setDeleteTarget(t); setEditingId(null); }}
+                            className="p-1.5 rounded hover:bg-accent-light text-accent transition-colors"
+                            title="削除"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                }
+
+                return (
+                  <tr
+                    key={t.id}
+                    onClick={() => !isArchived && permissions.canEditRecords && startEdit(t)}
+                    className={`border-b border-border last:border-b-0 transition-colors ${
+                      isArchived || !permissions.canEditRecords ? 'opacity-50' : 'hover:bg-primary-light/20 cursor-pointer'
+                    }`}
+                  >
+                    <td className="px-3 py-2 text-foreground whitespace-nowrap">
+                      {t.transaction_date || '---'}
+                    </td>
+                    <td className="px-3 py-2">
+                      <span
+                        className="inline-flex items-center justify-center px-2 py-0.5 rounded text-white text-[10px] font-bold"
                         style={{ backgroundColor: brand.color }}
                       >
                         {brand.label}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className={`text-[15px] font-bold ${cancel ? 'text-accent' : 'text-foreground'}`}>
-                            {cancel ? '−' : ''}{formatYen(t.amount)}
-                          </span>
-                          {cancel && t.transaction_content && (
-                            <Badge variant="destructive" className="text-[10px]">{t.transaction_content}</Badge>
-                          )}
-                          <Badge variant={conf.variant} className="text-[10px] ml-auto">{conf.label}</Badge>
-                        </div>
-                        <div className="text-xs text-muted mt-0.5">
-                          {t.transaction_date || '日付不明'} ・ 伝票 {t.slip_number || '---'}
-                        </div>
-                      </div>
-                      <Pencil className="h-4 w-4 text-border shrink-0" />
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
+                      </span>
+                    </td>
+                    <td className={`px-3 py-2 ${cancel ? 'text-accent font-semibold' : 'text-foreground'}`}>
+                      {t.transaction_content || '売上'}
+                    </td>
+                    <td className={`px-3 py-2 text-right font-mono tabular-nums ${cancel ? 'text-accent' : 'text-foreground'} font-semibold`}>
+                      {cancel ? '−' : ''}{formatYen(t.amount)}
+                    </td>
+                    <td className="px-3 py-2 text-muted">{t.slip_number || '---'}</td>
+                    <td className="px-3 py-2 text-muted">{t.payment_type || '---'}</td>
+                    <td className="px-3 py-2 text-muted">{t.terminal_number || '---'}</td>
+                    <td className="px-3 py-2 text-muted">{t.clerk || '---'}</td>
+                    <td className="px-3 py-2 text-muted text-xs whitespace-nowrap">
+                      {new Date(t.created_at).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' })}
+                    </td>
+                    <td className="px-3 py-2 text-center text-border">
+                      <span className="text-xs">{isArchived ? '確定済' : permissions.canEditRecords ? 'クリックで編集' : '閲覧のみ'}</span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
 
