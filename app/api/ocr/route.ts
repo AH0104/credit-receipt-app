@@ -1,11 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { createServerClient } from '@supabase/ssr';
 
 export async function POST(request: NextRequest) {
   try {
-    const { images } = await request.json();
-    // images: Array<{ base64: string, mimeType: string, fileName: string }>
+    // 認証チェック
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return request.cookies.getAll();
+          },
+          setAll() {},
+        },
+      }
+    );
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
+    }
 
+    const { images } = await request.json();
     if (!images || images.length === 0) {
       return NextResponse.json({ error: 'ファイルがありません' }, { status: 400 });
     }
@@ -68,12 +85,10 @@ JSONのみを返し、マークダウンや説明文は含めないでくださ�
         ]);
 
         const text = result.response.text();
-        console.log('Gemini raw response:', text.substring(0, 800)); // デバッグ用
 
         // JSONを抽出（マークダウンのコードブロックを除去）
         let clean = text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
 
-        // 配列 [...] またはオブジェクト {...} を検出
         const arrayStart = clean.indexOf('[');
         const objectStart = clean.indexOf('{');
 
@@ -81,7 +96,6 @@ JSONのみを返し、マークダウンや説明文は含めないでくださ�
         let openChar: string;
         let closeChar: string;
 
-        // 配列が先に出現、またはオブジェクトがない場合は配列として処理
         if (arrayStart !== -1 && (objectStart === -1 || arrayStart < objectStart)) {
           jsonStart = arrayStart;
           openChar = '[';
@@ -94,7 +108,6 @@ JSONのみを返し、マークダウンや説明文は含めないでくださ�
           throw new Error('JSON not found in response');
         }
 
-        // ネストを追跡して正確に終了位置を特定
         let nestCount = 0;
         let jsonEnd = -1;
         for (let i = jsonStart; i < clean.length; i++) {
@@ -115,38 +128,34 @@ JSONのみを返し、マークダウンや説明文は含めないでくださ�
         const items = Array.isArray(parsed) ? parsed : [parsed];
 
         items.forEach((item: any) => {
-          // フロントエンドのフィールド名に合わせてマッピング
           results.push({
             transaction_date: item.transaction_date,
+            transaction_content: item.transaction_content,
             card_brand: item.card_brand,
-            transaction_type: item.transaction_content, // フロントエンド互換
             amount: item.amount,
             slip_number: item.slip_number,
-            approval_number: null, // 廃止項目
             confidence: item.confidence,
-            // 追加項目（スプレッドシート用）
             payment_type: item.payment_type,
             terminal_number: item.terminal_number,
             clerk: item.clerk,
-            fileName: image.fileName,
+            file_name: image.fileName,
           });
         });
       } catch (err: any) {
         console.error('OCR error for', image.fileName, err);
         results.push({
           transaction_date: null,
+          transaction_content: null,
           card_brand: null,
-          transaction_type: null,
           amount: null,
           slip_number: null,
-          approval_number: null,
           confidence: 'low',
           payment_type: null,
           terminal_number: null,
           clerk: null,
-          fileName: image.fileName,
+          file_name: image.fileName,
           error: true,
-          errorMessage: err.message || 'Unknown error', // デバッグ用
+          errorMessage: err.message || 'Unknown error',
         });
       }
     }

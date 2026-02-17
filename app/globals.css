@@ -1,0 +1,38 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: #F5F3EE;
+  --color-foreground: #2C2C2C;
+  --color-card: #FFFFFF;
+  --color-card-foreground: #2C2C2C;
+  --color-primary: #1B4965;
+  --color-primary-light: #E8F0F5;
+  --color-primary-foreground: #FFFFFF;
+  --color-accent: #D4574C;
+  --color-accent-light: #FDF0EE;
+  --color-accent-foreground: #FFFFFF;
+  --color-muted: #7A7A7A;
+  --color-muted-foreground: #7A7A7A;
+  --color-border: #E5E2DC;
+  --color-success: #2D8659;
+  --color-success-light: #EDF7F1;
+  --color-warning: #C68A1D;
+  --color-warning-light: #FFF8EB;
+  --color-brand-jcb: #0066B3;
+  --color-brand-visa: #1A1F71;
+  --color-brand-mastercard: #EB001B;
+  --color-brand-amex: #006FCF;
+  --color-brand-diners: #006B6F;
+
+  --font-sans: 'Noto Sans JP', sans-serif;
+
+  --max-width-app: 720px;
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+  margin: 0;
+  padding: 0;
+}
