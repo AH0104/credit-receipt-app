@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Download, Trash2, Check, X, Loader2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { Plus, Download, Trash2, Check, X, Loader2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -17,11 +17,11 @@ type FilterMode = 'all' | 'active' | 'archived';
 
 export default function RecordsPage() {
   const {
-    transactions, loading, update, remove,
+    transactions, loading, update, remove, confirmAmount,
     page, setPage, totalCount, totalPages, pageSize,
     yearMonth, changeYearMonth, yearMonthOptions,
   } = useTransactions();
-  const { permissions } = useUserProfile();
+  const { profile, permissions } = useUserProfile();
   const { showToast } = useToast();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editFields, setEditFields] = useState<Partial<Transaction>>({});
@@ -60,11 +60,23 @@ export default function RecordsPage() {
   const saveEdit = async () => {
     if (!editingId) return;
     try {
-      await update(editingId, editFields);
+      const modifierName = profile?.display_name || profile?.email || '不明';
+      await update(editingId, editFields, modifierName);
       setEditingId(null);
       showToast('更新しました');
     } catch {
       showToast('更新に失敗しました');
+    }
+  };
+
+  const handleConfirmAmount = async (e: React.MouseEvent, t: Transaction) => {
+    e.stopPropagation();
+    try {
+      const confirmerName = profile?.display_name || profile?.email || '不明';
+      await confirmAmount(t.id, confirmerName);
+      showToast('金額を確定しました');
+    } catch {
+      showToast('金額確定に失敗しました');
     }
   };
 
@@ -84,6 +96,13 @@ export default function RecordsPage() {
   // ページネーション表示用の範囲
   const rangeStart = totalCount === 0 ? 0 : (page - 1) * pageSize + 1;
   const rangeEnd = Math.min(page * pageSize, totalCount);
+
+  const fmtDateTime = (iso: string | null) => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return d.toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' }) + ' ' +
+      d.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+  };
 
   if (loading) {
     return (
@@ -196,8 +215,8 @@ export default function RecordsPage() {
                 <th className="text-left px-3 py-2.5 font-semibold text-muted text-xs">支払方法</th>
                 <th className="text-left px-3 py-2.5 font-semibold text-muted text-xs">端末</th>
                 <th className="text-left px-3 py-2.5 font-semibold text-muted text-xs">係員</th>
-                <th className="text-left px-3 py-2.5 font-semibold text-muted text-xs">アップロード日</th>
-                <th className="text-center px-3 py-2.5 font-semibold text-muted text-xs w-20">操作</th>
+                <th className="text-left px-3 py-2.5 font-semibold text-muted text-xs">操作履歴</th>
+                <th className="text-center px-3 py-2.5 font-semibold text-muted text-xs w-28">操作</th>
               </tr>
             </thead>
             <tbody>
@@ -280,8 +299,13 @@ export default function RecordsPage() {
                           className="h-8 text-xs"
                         />
                       </td>
-                      <td className="px-2 py-1.5 text-xs text-muted whitespace-nowrap">
-                        {new Date(t.created_at).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' })}
+                      <td className="px-2 py-1.5 text-[10px] text-muted leading-relaxed">
+                        {t.uploaded_by_name && <div>登録: {t.uploaded_by_name} {fmtDateTime(t.uploaded_at)}</div>}
+                        {t.modified_by_name && <div>修正: {t.modified_by_name} {fmtDateTime(t.modified_at)}</div>}
+                        {t.confirmed_by_name && <div>確定: {t.confirmed_by_name} {fmtDateTime(t.confirmed_at)}</div>}
+                        {!t.uploaded_by_name && !t.modified_by_name && (
+                          <div>{fmtDateTime(t.created_at)}</div>
+                        )}
                       </td>
                       <td className="px-2 py-1.5">
                         <div className="flex gap-1 justify-center">
@@ -341,11 +365,42 @@ export default function RecordsPage() {
                     <td className="px-3 py-2 text-muted">{t.payment_type || '---'}</td>
                     <td className="px-3 py-2 text-muted">{t.terminal_number || '---'}</td>
                     <td className="px-3 py-2 text-muted">{t.clerk || '---'}</td>
-                    <td className="px-3 py-2 text-muted text-xs whitespace-nowrap">
-                      {new Date(t.created_at).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' })}
+                    <td className="px-3 py-2 text-[10px] text-muted leading-relaxed">
+                      {t.uploaded_by_name && <div>登録: {t.uploaded_by_name} {fmtDateTime(t.uploaded_at)}</div>}
+                      {t.modified_by_name && <div>修正: {t.modified_by_name} {fmtDateTime(t.modified_at)}</div>}
+                      {t.confirmed_by_name && <div>確定: {t.confirmed_by_name} {fmtDateTime(t.confirmed_at)}</div>}
+                      {!t.uploaded_by_name && !t.modified_by_name && !t.confirmed_by_name && (
+                        <div>{fmtDateTime(t.created_at)}</div>
+                      )}
                     </td>
-                    <td className="px-3 py-2 text-center text-border">
-                      <span className="text-xs">{isArchived ? '確定済' : permissions.canEditRecords ? 'クリックで編集' : '閲覧のみ'}</span>
+                    <td className="px-3 py-2 text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        {!isArchived && permissions.canEditRecords && !t.confirmed_at && (
+                          <button
+                            onClick={(e) => handleConfirmAmount(e, t)}
+                            className="inline-flex items-center gap-0.5 px-1.5 py-1 rounded text-[10px] font-semibold bg-success-light text-success hover:bg-success/20 transition-colors"
+                            title="金額確定"
+                          >
+                            <ShieldCheck className="h-3 w-3" />
+                            確定
+                          </button>
+                        )}
+                        {t.confirmed_at && (
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-1 rounded text-[10px] font-semibold bg-primary-light text-primary">
+                            <ShieldCheck className="h-3 w-3" />
+                            確定済
+                          </span>
+                        )}
+                        {!isArchived && !t.confirmed_at && permissions.canEditRecords && (
+                          <span className="text-[10px] text-border">編集可</span>
+                        )}
+                        {isArchived && !t.confirmed_at && (
+                          <span className="text-[10px] text-border">照合済</span>
+                        )}
+                        {!permissions.canEditRecords && !t.confirmed_at && (
+                          <span className="text-[10px] text-border">閲覧のみ</span>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );

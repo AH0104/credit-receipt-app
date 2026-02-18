@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/layout/toast-provider';
 import { useTransactions } from '@/lib/hooks/use-transactions';
 import { useUploadLogs } from '@/lib/hooks/use-upload-logs';
+import { useUserProfile } from '@/lib/hooks/use-user-profile';
 import { isPdf, fileToBase64, resizeImage } from '@/lib/utils/image-resize';
 import { getBrandInfo, formatYen, isCancel, getConfidenceBadge } from '@/lib/constants/card-brands';
 import { RoleGuard } from '@/components/auth/role-guard';
@@ -30,6 +31,7 @@ export default function UploadPage() {
   const { showToast } = useToast();
   const { insert } = useTransactions();
   const { createLog, updateLog, uploadFile, saveOcrRaw } = useUploadLogs();
+  const { profile } = useUserProfile();
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -102,7 +104,8 @@ export default function UploadPage() {
 
     setSaving(true);
     try {
-      // Insert transactions (with upload_log_id)
+      // Insert transactions (with upload_log_id + uploader name)
+      const uploaderName = profile?.display_name || profile?.email || '不明';
       const saved = await insert(
         valid.map((r) => ({
           transaction_date: r.transaction_date,
@@ -116,7 +119,8 @@ export default function UploadPage() {
           confidence: r.confidence,
           file_name: r.file_name,
         })),
-        uploadLogId
+        uploadLogId,
+        uploaderName
       );
 
       // Save OCR raw results with links to saved transactions
