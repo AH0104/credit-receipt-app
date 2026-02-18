@@ -94,14 +94,10 @@ export function useReconciliation() {
   };
 
   const archivePeriod = async (periodId: string, periodStart: string, periodEnd: string) => {
-    // Mark matching transactions as archived
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('認証されていません');
-
+    // Mark matching transactions as archived (all users' data)
     await supabase
       .from('transactions')
       .update({ archived_period_id: periodId })
-      .eq('user_id', user.id)
       .gte('transaction_date', periodStart)
       .lte('transaction_date', periodEnd)
       .is('archived_period_id', null);
@@ -120,13 +116,9 @@ export function useReconciliation() {
     periodEnd: string,
     getBrandGroup: (brand: string | null) => string
   ) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('認証されていません');
-
     const { data: txns } = await supabase
       .from('transactions')
       .select('card_brand, amount, transaction_content')
-      .eq('user_id', user.id)
       .gte('transaction_date', periodStart)
       .lte('transaction_date', periodEnd);
 
