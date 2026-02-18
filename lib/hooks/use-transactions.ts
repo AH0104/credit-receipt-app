@@ -101,12 +101,13 @@ export function useTransactions() {
     setPage(1);
   }, []);
 
-  const insert = async (records: Partial<Transaction>[], uploadLogId?: string) => {
+  const insert = async (records: Partial<Transaction>[], uploadLogId?: string, uploaderName?: string) => {
     const {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) throw new Error('認証されていません');
 
+    const now = new Date().toISOString();
     const rows = records.map((r) => ({
       user_id: user.id,
       transaction_date: r.transaction_date || null,
@@ -120,6 +121,8 @@ export function useTransactions() {
       confidence: r.confidence || 'medium',
       file_name: r.file_name || null,
       upload_log_id: uploadLogId || null,
+      uploaded_by_name: uploaderName || null,
+      uploaded_at: now,
     }));
 
     const { data, error: err } = await supabase
@@ -135,16 +138,42 @@ export function useTransactions() {
     return data;
   };
 
-  const update = async (id: string, fields: Partial<Transaction>) => {
+  const update = async (id: string, fields: Partial<Transaction>, modifierName?: string) => {
+    const now = new Date().toISOString();
+    const updateFields: Record<string, any> = {
+      ...fields,
+      modified_by_name: modifierName || null,
+      modified_at: now,
+    };
+
     const { error: err } = await supabase
       .from('transactions')
-      .update(fields)
+      .update(updateFields)
       .eq('id', id);
 
     if (err) throw err;
 
     setTransactions((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, ...fields } : t))
+      prev.map((t) => (t.id === id ? { ...t, ...updateFields } : t))
+    );
+  };
+
+  const confirmAmount = async (id: string, confirmerName: string) => {
+    const now = new Date().toISOString();
+    const updateFields = {
+      confirmed_by_name: confirmerName,
+      confirmed_at: now,
+    };
+
+    const { error: err } = await supabase
+      .from('transactions')
+      .update(updateFields)
+      .eq('id', id);
+
+    if (err) throw err;
+
+    setTransactions((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, ...updateFields } : t))
     );
   };
 
@@ -170,6 +199,7 @@ export function useTransactions() {
     insert,
     update,
     remove,
+    confirmAmount,
     // ページネーション
     page,
     setPage,
