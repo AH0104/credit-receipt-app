@@ -222,6 +222,9 @@ export default function SummaryPage() {
 
       <div className="bg-card rounded-lg border border-border p-4 overflow-auto pivot-container">
         <PivotTableUI
+          vals={['金額']}
+          aggregatorName="合計"
+          rendererName="テーブル"
           {...pivotState}
           data={pivotData}
           onChange={(s: any) => {
