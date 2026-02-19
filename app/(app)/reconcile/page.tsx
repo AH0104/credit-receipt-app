@@ -37,12 +37,13 @@ function getPeriodStatusBadge(status: string) {
   }
 }
 
-function getCategoryBadge(category: PaymentCategory) {
+function getCategoryBadge(category: string) {
   switch (category) {
     case '一括': return { color: 'bg-blue-100 text-blue-700' };
     case '2回': return { color: 'bg-yellow-100 text-yellow-700' };
     case 'その他': return { color: 'bg-gray-100 text-gray-600' };
     case 'ボーナス': return { color: 'bg-purple-100 text-purple-700' };
+    default: return { color: 'bg-gray-100 text-gray-600' };
   }
 }
 
@@ -255,21 +256,17 @@ export default function ReconcilePage() {
   // Brand breakdown cache (from latest computeActuals)
   const [brandData, setBrandData] = useState<GroupActual[]>([]);
 
-  // Auto-select the most recent non-archived period
+  // Auto-select the most recent non-archived period, or sync active period after refetch
   useEffect(() => {
-    if (!activePeriod && periods.length > 0) {
-      const open = periods.find((p) => p.status !== 'archived');
-      setActivePeriod(open || periods[0]);
-    }
-  }, [periods, activePeriod]);
-
-  // Update active period when periods change
-  useEffect(() => {
-    if (activePeriod) {
-      const updated = periods.find((p) => p.id === activePeriod.id);
-      if (updated) setActivePeriod(updated);
-    }
-  }, [periods, activePeriod]);
+    if (periods.length === 0) return;
+    setActivePeriod((prev) => {
+      if (!prev) {
+        const open = periods.find((p) => p.status !== 'archived');
+        return open || periods[0];
+      }
+      return periods.find((p) => p.id === prev.id) || prev;
+    });
+  }, [periods]);
 
   // Compute expected payment date display
   const expectedPaymentLabel = useMemo(() => {

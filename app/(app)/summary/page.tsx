@@ -222,15 +222,15 @@ export default function SummaryPage() {
 
       <div className="bg-card rounded-lg border border-border p-4 overflow-auto pivot-container">
         <PivotTableUI
+          {...pivotState}
           data={pivotData}
-          onChange={(s: any) => setPivotState(s)}
+          onChange={(s: any) => {
+            const { data: _data, aggregators: _agg, renderers: _rend, localeStrings: _loc, ...rest } = s;
+            setPivotState(rest);
+          }}
           renderers={renderers}
           aggregators={jaAggregators}
           localeStrings={jaLocaleStrings}
-          vals={['金額']}
-          aggregatorName="合計"
-          rendererName="テーブル"
-          {...pivotState}
         />
       </div>
     </div>
