@@ -36,6 +36,7 @@ export interface ReconciliationEntry {
  * group_label "VJ協|一括" → { group: "VJ協", category: "一括" }
  */
 export function parseGroupLabel(label: string): { group: string; category: PaymentCategory } {
+  if (!label) return { group: '不明', category: '一括' };
   const idx = label.indexOf('|');
   if (idx === -1) return { group: label, category: '一括' };
   const group = label.substring(0, idx);
@@ -47,5 +48,5 @@ export function parseGroupLabel(label: string): { group: string; category: Payme
  * 差引残 = 売上合計 + 繰越 − 入金額 − 手数料
  */
 export function computeBalance(e: ReconciliationEntry): number {
-  return e.actual_amount + e.carryover_amount - e.expected_amount - e.fee_amount;
+  return (e.actual_amount || 0) + (e.carryover_amount || 0) - (e.expected_amount || 0) - (e.fee_amount || 0);
 }

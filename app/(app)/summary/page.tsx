@@ -169,7 +169,7 @@ export default function SummaryPage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 summary-full-width">
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-bold text-foreground">集計・ピボットテーブル</h1>
         <p className="text-sm text-muted">項目をドラッグして行・列に配置してください</p>
@@ -222,15 +222,18 @@ export default function SummaryPage() {
 
       <div className="bg-card rounded-lg border border-border p-4 overflow-auto pivot-container">
         <PivotTableUI
-          data={pivotData}
-          onChange={(s: any) => setPivotState(s)}
-          renderers={renderers}
-          aggregators={jaAggregators}
-          localeStrings={jaLocaleStrings}
           vals={['金額']}
           aggregatorName="合計"
           rendererName="テーブル"
           {...pivotState}
+          data={pivotData}
+          onChange={(s: any) => {
+            const { data: _data, aggregators: _agg, renderers: _rend, localeStrings: _loc, ...rest } = s;
+            setPivotState(rest);
+          }}
+          renderers={renderers}
+          aggregators={jaAggregators}
+          localeStrings={jaLocaleStrings}
         />
       </div>
     </div>

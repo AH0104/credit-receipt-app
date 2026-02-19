@@ -37,12 +37,13 @@ function getPeriodStatusBadge(status: string) {
   }
 }
 
-function getCategoryBadge(category: PaymentCategory) {
+function getCategoryBadge(category: string) {
   switch (category) {
     case '一括': return { color: 'bg-blue-100 text-blue-700' };
     case '2回': return { color: 'bg-yellow-100 text-yellow-700' };
     case 'その他': return { color: 'bg-gray-100 text-gray-600' };
     case 'ボーナス': return { color: 'bg-purple-100 text-purple-700' };
+    default: return { color: 'bg-gray-100 text-gray-600' };
   }
 }
 
@@ -255,21 +256,17 @@ export default function ReconcilePage() {
   // Brand breakdown cache (from latest computeActuals)
   const [brandData, setBrandData] = useState<GroupActual[]>([]);
 
-  // Auto-select the most recent non-archived period
+  // Auto-select the most recent non-archived period, or sync active period after refetch
   useEffect(() => {
-    if (!activePeriod && periods.length > 0) {
-      const open = periods.find((p) => p.status !== 'archived');
-      setActivePeriod(open || periods[0]);
-    }
-  }, [periods, activePeriod]);
-
-  // Update active period when periods change
-  useEffect(() => {
-    if (activePeriod) {
-      const updated = periods.find((p) => p.id === activePeriod.id);
-      if (updated) setActivePeriod(updated);
-    }
-  }, [periods, activePeriod]);
+    if (periods.length === 0) return;
+    setActivePeriod((prev) => {
+      if (!prev) {
+        const open = periods.find((p) => p.status !== 'archived');
+        return open || periods[0];
+      }
+      return periods.find((p) => p.id === prev.id) || prev;
+    });
+  }, [periods]);
 
   // Compute expected payment date display
   const expectedPaymentLabel = useMemo(() => {
@@ -282,6 +279,18 @@ export default function ReconcilePage() {
     if (!activePeriod?.expected_payment_date) return false;
     return new Date(activePeriod.expected_payment_date) < new Date() && activePeriod.status !== 'archived';
   }, [activePeriod]);
+
+  // Compute expected payment date for new period dialog
+  const newPeriodExpectedDate = useMemo(() => {
+    const lastDay = new Date(newYear, newMonth, 0).getDate();
+    if (newPeriodType === 'first_half') {
+      return `${newYear}/${newMonth}/${lastDay}`;
+    } else {
+      const nm = newMonth === 12 ? 1 : newMonth + 1;
+      const ny = newMonth === 12 ? newYear + 1 : newYear;
+      return `${ny}/${nm}/15`;
+    }
+  }, [newYear, newMonth, newPeriodType]);
 
   // ─── Handlers ─────────────────────────────
 
@@ -413,18 +422,6 @@ export default function ReconcilePage() {
   const totalCarryover = entries.reduce((s, e) => s + e.carryover_amount, 0);
   const totalBalance = entries.reduce((s, e) => s + computeBalance(e), 0);
   const overdueCount = entries.filter((e) => derivePaymentStatus(e, activePeriod?.expected_payment_date ?? null) === 'overdue').length;
-
-  // Compute expected payment date for new period dialog
-  const newPeriodExpectedDate = useMemo(() => {
-    const lastDay = new Date(newYear, newMonth, 0).getDate();
-    if (newPeriodType === 'first_half') {
-      return `${newYear}/${newMonth}/${lastDay}`;
-    } else {
-      const nm = newMonth === 12 ? 1 : newMonth + 1;
-      const ny = newMonth === 12 ? newYear + 1 : newYear;
-      return `${ny}/${nm}/15`;
-    }
-  }, [newYear, newMonth, newPeriodType]);
 
   // ─── Render ───────────────────────────────
 
