@@ -117,6 +117,7 @@ export function useTransactions() {
       terminal_number: r.terminal_number || null,
       card_brand: r.card_brand || null,
       amount: r.amount || 0,
+      installment_count: r.installment_count ?? 1,
       clerk: r.clerk || null,
       confidence: r.confidence || 'medium',
       file_name: r.file_name || null,

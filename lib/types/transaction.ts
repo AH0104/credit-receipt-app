@@ -8,6 +8,7 @@ export interface Transaction {
   terminal_number: string | null;
   card_brand: string | null;
   amount: number;
+  installment_count: number;
   clerk: string | null;
   confidence: string;
   file_name: string | null;
@@ -36,6 +37,7 @@ export interface PendingRecord {
   terminal_number: string | null;
   card_brand: string | null;
   amount: number | null;
+  installment_count: number;
   clerk: string | null;
   confidence: string;
   file_name: string | null;
