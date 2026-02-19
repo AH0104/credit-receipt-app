@@ -169,7 +169,7 @@ export default function SummaryPage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 summary-full-width">
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-bold text-foreground">集計・ピボットテーブル</h1>
         <p className="text-sm text-muted">項目をドラッグして行・列に配置してください</p>

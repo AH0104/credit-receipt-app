@@ -106,3 +106,12 @@ body {
   font-weight: 700;
   background-color: var(--color-primary-light) !important;
 }
+
+/* Summary page: break out of max-w-app container to use full viewport width */
+.summary-full-width {
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
+  box-sizing: border-box;
+}
