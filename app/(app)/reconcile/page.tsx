@@ -280,6 +280,18 @@ export default function ReconcilePage() {
     return new Date(activePeriod.expected_payment_date) < new Date() && activePeriod.status !== 'archived';
   }, [activePeriod]);
 
+  // Compute expected payment date for new period dialog
+  const newPeriodExpectedDate = useMemo(() => {
+    const lastDay = new Date(newYear, newMonth, 0).getDate();
+    if (newPeriodType === 'first_half') {
+      return `${newYear}/${newMonth}/${lastDay}`;
+    } else {
+      const nm = newMonth === 12 ? 1 : newMonth + 1;
+      const ny = newMonth === 12 ? newYear + 1 : newYear;
+      return `${ny}/${nm}/15`;
+    }
+  }, [newYear, newMonth, newPeriodType]);
+
   // ─── Handlers ─────────────────────────────
 
   const handleCreatePeriod = async () => {
@@ -410,18 +422,6 @@ export default function ReconcilePage() {
   const totalCarryover = entries.reduce((s, e) => s + e.carryover_amount, 0);
   const totalBalance = entries.reduce((s, e) => s + computeBalance(e), 0);
   const overdueCount = entries.filter((e) => derivePaymentStatus(e, activePeriod?.expected_payment_date ?? null) === 'overdue').length;
-
-  // Compute expected payment date for new period dialog
-  const newPeriodExpectedDate = useMemo(() => {
-    const lastDay = new Date(newYear, newMonth, 0).getDate();
-    if (newPeriodType === 'first_half') {
-      return `${newYear}/${newMonth}/${lastDay}`;
-    } else {
-      const nm = newMonth === 12 ? 1 : newMonth + 1;
-      const ny = newMonth === 12 ? newYear + 1 : newYear;
-      return `${ny}/${nm}/15`;
-    }
-  }, [newYear, newMonth, newPeriodType]);
 
   // ─── Render ───────────────────────────────
 
