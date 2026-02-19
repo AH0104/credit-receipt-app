@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { createServerClient } from '@supabase/ssr';
+import { normalizeOcrResult } from '@/lib/utils/normalize';
 
 export async function POST(request: NextRequest) {
   try {
@@ -45,7 +46,8 @@ JSONのみを返し、マークダウンや説明文は含めないでくださ�
     "transaction_date": "YYYY-MM-DD",
     "slip_number": "伝票番号",
     "transaction_content": "売上/取消/返品など",
-    "payment_type": "一括/分割/リボなど（なければnull）",
+    "payment_type": "一括/分割2回/分割3回/リボ/ボーナスなど（なければnull）",
+    "installment_count": 1,
     "terminal_number": "端末番号",
     "card_brand": "決済種別",
     "amount": 12345,
@@ -60,7 +62,10 @@ JSONのみを返し、マークダウンや説明文は含めないでくださ�
 - transaction_date: ご利用日、取引日の日付をYYYY-MM-DD形式で
 - slip_number: 伝票番号、伝票No、取引通番、注文番号
 - transaction_content: 取引内容（売上、取消、返品など）
-- payment_type: 支払区分（一括、分割、リボ、ボーナス等）。記載なければnull
+- payment_type: 支払区分（一括、分割2回、分割3回、リボ、ボーナス等）。
+  分割の場合は必ず「分割N回」の形式で回数を含めること。記載なければnull
+- installment_count: 分割回数の数値（一括=1、分割2回=2、分割3回=3 等）。
+  分割以外またはnullの場合は1
 - terminal_number: TID、端末ID、端末番号の値
 - card_brand: 以下の優先順位で抽出
   1. カード会社欄（JCB, VISA, Mastercard, MUFGカード等）
@@ -128,16 +133,18 @@ JSONのみを返し、マークダウンや説明文は含めないでくださ�
         const items = Array.isArray(parsed) ? parsed : [parsed];
 
         items.forEach((item: any) => {
+          const normalized = normalizeOcrResult(item);
           results.push({
-            transaction_date: item.transaction_date,
-            transaction_content: item.transaction_content,
-            card_brand: item.card_brand,
-            amount: item.amount,
-            slip_number: item.slip_number,
-            confidence: item.confidence,
-            payment_type: item.payment_type,
-            terminal_number: item.terminal_number,
-            clerk: item.clerk,
+            transaction_date: normalized.transaction_date,
+            transaction_content: normalized.transaction_content,
+            card_brand: normalized.card_brand,
+            amount: normalized.amount,
+            slip_number: normalized.slip_number,
+            confidence: normalized.confidence,
+            payment_type: normalized.payment_type,
+            installment_count: normalized.installment_count ?? 1,
+            terminal_number: normalized.terminal_number,
+            clerk: normalized.clerk,
             file_name: image.fileName,
           });
         });
@@ -151,6 +158,7 @@ JSONのみを返し、マークダウンや説明文は含めないでくださ�
           slip_number: null,
           confidence: 'low',
           payment_type: null,
+          installment_count: 1,
           terminal_number: null,
           clerk: null,
           file_name: image.fileName,

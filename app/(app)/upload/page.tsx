@@ -115,6 +115,7 @@ export default function UploadPage() {
           terminal_number: r.terminal_number,
           card_brand: r.card_brand,
           amount: r.amount || 0,
+          installment_count: r.installment_count ?? 1,
           clerk: r.clerk,
           confidence: r.confidence,
           file_name: r.file_name,
