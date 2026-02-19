@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { Loader2 } from 'lucide-react';
-import { useTransactions } from '@/lib/hooks/use-transactions';
+import { useAllTransactions } from '@/lib/hooks/use-all-transactions';
 import { useCardGroups } from '@/lib/hooks/use-card-groups';
 import { jaAggregators, jaLocaleStrings } from '@/lib/pivot-locale-ja';
 import 'react-pivottable/pivottable.css';
@@ -57,7 +57,7 @@ function createJaRenderers(renderers: Record<string, any>) {
 }
 
 export default function SummaryPage() {
-  const { transactions, loading } = useTransactions();
+  const { transactions, loading } = useAllTransactions();
   const { getBrandGroup, loading: groupsLoading } = useCardGroups();
   const [pivotState, setPivotState] = useState<any>({});
   const [renderers, setRenderers] = useState<Record<string, any> | null>(null);
