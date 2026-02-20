@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 import { createServerClient } from '@supabase/ssr';
 import { normalizeOcrResult } from '@/lib/utils/normalize';
 
@@ -28,8 +28,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'ファイルがありません' }, { status: 400 });
     }
 
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-    const model = genAI.getGenerativeModel({ model: 'gemini-3-flash-preview' });
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
 
     const results = [];
 
@@ -79,17 +78,20 @@ JSONのみを返し、マークダウンや説明文は含めないでくださ�
 - カード番号は絶対に抽出しないこと
 - ${isPdf ? 'PDF内の全ページを確認し、' : '画像内の'}全てのレシートを漏れなく抽出すること`;
 
-        const result = await model.generateContent([
-          prompt,
-          {
-            inlineData: {
-              mimeType: image.mimeType,
-              data: image.base64,
+        const result = await ai.models.generateContent({
+          model: 'gemini-2.5-flash',
+          contents: [
+            { text: prompt },
+            {
+              inlineData: {
+                mimeType: image.mimeType,
+                data: image.base64,
+              },
             },
-          },
-        ]);
+          ],
+        });
 
-        const text = result.response.text();
+        const text = result.text || '';
 
         // JSONを抽出（マークダウンのコードブロックを除去）
         let clean = text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
