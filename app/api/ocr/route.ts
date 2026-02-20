@@ -3,6 +3,8 @@ import { GoogleGenAI } from '@google/genai';
 import { createServerClient } from '@supabase/ssr';
 import { normalizeOcrResult } from '@/lib/utils/normalize';
 
+export const maxDuration = 300;
+
 export async function POST(request: NextRequest) {
   try {
     // 認証チェック
