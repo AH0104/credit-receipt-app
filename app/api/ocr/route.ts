@@ -79,7 +79,7 @@ JSONのみを返し、マークダウンや説明文は含めないでくださ�
 - ${isPdf ? 'PDF内の全ページを確認し、' : '画像内の'}全てのレシートを漏れなく抽出すること`;
 
         const result = await ai.models.generateContent({
-          model: 'gemini-2.5-flash',
+          model: 'gemini-3-flash-preview',
           contents: [
             { text: prompt },
             {
