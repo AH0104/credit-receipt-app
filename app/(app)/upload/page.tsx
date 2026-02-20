@@ -71,11 +71,16 @@ export default function UploadPage() {
       // 3. Run OCR
       setProcessStatus(`AI読取中... (${images.length}件)`);
 
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 300_000);
+
       const res = await fetch('/api/ocr', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ images }),
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
       const data = await res.json();
 
       if (data.results) {
