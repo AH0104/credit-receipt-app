@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { useToast } from '@/components/layout/toast-provider';
 import { useTransactions } from '@/lib/hooks/use-transactions';
 import { useUserProfile } from '@/lib/hooks/use-user-profile';
+import { useCardBrandMaster } from '@/lib/hooks/use-card-brand-master';
 import { getBrandInfo, formatYen, isCancel } from '@/lib/constants/card-brands';
 import { exportToCsv } from '@/lib/utils/csv-export';
 import type { Transaction } from '@/lib/types/transaction';
@@ -22,6 +23,7 @@ export default function RecordsPage() {
     yearMonth, changeYearMonth, yearMonthOptions,
   } = useTransactions();
   const { profile, permissions } = useUserProfile();
+  const { brands: masterBrands } = useCardBrandMaster();
   const { showToast } = useToast();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editFields, setEditFields] = useState<Partial<Transaction>>({});
@@ -244,11 +246,9 @@ export default function RecordsPage() {
                           className="h-8 w-full rounded border border-border bg-card px-1.5 text-xs"
                         >
                           <option value="">--</option>
-                          <option value="JCB">JCB</option>
-                          <option value="VISA">VISA</option>
-                          <option value="Mastercard">MC</option>
-                          <option value="AMEX">AMEX</option>
-                          <option value="Diners">Diners</option>
+                          {masterBrands.map((b) => (
+                            <option key={b.id} value={b.name}>{b.name}</option>
+                          ))}
                           <option value="その他">その他</option>
                         </select>
                       </td>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Plus, Trash2, Save, Loader2, FileText, Clock, Users, Shield, UserPlus } from 'lucide-react';
+import { Plus, Trash2, Save, Loader2, FileText, Clock, Users, Shield, UserPlus, CreditCard, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,12 +10,20 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useToast } from '@/components/layout/toast-provider';
 import { useCardGroups } from '@/lib/hooks/use-card-groups';
+import { useCardBrandMaster } from '@/lib/hooks/use-card-brand-master';
 import { useUploadLogs } from '@/lib/hooks/use-upload-logs';
 import { useTransactions } from '@/lib/hooks/use-transactions';
 import { useUserProfile, useUserManagement } from '@/lib/hooks/use-user-profile';
 import { ROLE_PERMISSIONS } from '@/lib/types/user-profile';
 import type { CardBrandGroup } from '@/lib/types/card-group';
+import type { CardBrandMaster } from '@/lib/types/card-brand-master';
 import type { UserRole } from '@/lib/types/user-profile';
+
+interface BrandMasterForm {
+  id?: string;
+  name: string;
+  aliases: string;
+}
 
 interface GroupForm {
   id?: string;
@@ -36,21 +44,68 @@ function extractLoginId(email: string): string {
 
 export default function SettingsPage() {
   const { groups, loading: groupsLoading, upsert, remove } = useCardGroups();
+  const { brands: masterBrands, loading: masterLoading, upsert: upsertBrand, remove: removeBrand } = useCardBrandMaster();
   const { logs, loading: logsLoading } = useUploadLogs();
   const { transactions, loading: txnLoading } = useTransactions();
-  const { profile, isAdmin } = useUserProfile();
+  const { profile, isAdmin, permissions } = useUserProfile();
   const { users, loading: usersLoading, updateRole, toggleActive, createUser, deleteUser } = useUserManagement();
   const { showToast } = useToast();
 
-  // 明細データから実際に使われているカード会社名を動的に抽出
+  // マスタからブランド名一覧を取得（グループ設定のチェックボックス用）
   const allBrands = useMemo(() => {
-    const brandSet = new Set<string>();
-    for (const t of transactions) {
-      if (t.card_brand) brandSet.add(t.card_brand);
-    }
-    return Array.from(brandSet).sort();
-  }, [transactions]);
+    return masterBrands.map(b => b.name);
+  }, [masterBrands]);
 
+  // ブランドマスタ編集
+  const [brandEditDialog, setBrandEditDialog] = useState(false);
+  const [brandForm, setBrandForm] = useState<BrandMasterForm>({ name: '', aliases: '' });
+  const [brandDeleteTarget, setBrandDeleteTarget] = useState<CardBrandMaster | null>(null);
+  const [brandSaving, setBrandSaving] = useState(false);
+
+  const canEditSettings = permissions.canManageSettings || permissions.canEditRecords;
+
+  const openNewBrand = () => {
+    setBrandForm({ name: '', aliases: '' });
+    setBrandEditDialog(true);
+  };
+
+  const openEditBrand = (b: CardBrandMaster) => {
+    setBrandForm({ id: b.id, name: b.name, aliases: b.aliases.join(', ') });
+    setBrandEditDialog(true);
+  };
+
+  const saveBrand = async () => {
+    if (!brandForm.name.trim()) {
+      showToast('ブランド名を入力してください');
+      return;
+    }
+    setBrandSaving(true);
+    try {
+      const aliases = brandForm.aliases
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean);
+      await upsertBrand({ id: brandForm.id, name: brandForm.name.trim(), aliases });
+      showToast('保存しました');
+      setBrandEditDialog(false);
+    } catch {
+      showToast('保存に失敗しました');
+    }
+    setBrandSaving(false);
+  };
+
+  const confirmDeleteBrand = async () => {
+    if (!brandDeleteTarget) return;
+    try {
+      await removeBrand(brandDeleteTarget.id);
+      showToast('削除しました');
+    } catch {
+      showToast('削除に失敗しました');
+    }
+    setBrandDeleteTarget(null);
+  };
+
+  // グループ編集
   const [editDialog, setEditDialog] = useState(false);
   const [form, setForm] = useState<GroupForm>({ group_name: '', brands: [] });
   const [deleteTarget, setDeleteTarget] = useState<CardBrandGroup | null>(null);
@@ -292,6 +347,73 @@ export default function SettingsPage() {
         </section>
       )}
 
+      {/* カードブランドマスタ */}
+      <section>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+              <CreditCard className="h-5 w-5" />
+              カードブランドマスタ
+            </h2>
+            <p className="text-sm text-muted mt-0.5">
+              OCR読取時に使用するブランド名の一覧。別名を登録するとAIの表記揺れを吸収できます。
+            </p>
+          </div>
+          {canEditSettings && (
+            <Button variant="outline" size="sm" onClick={openNewBrand}>
+              <Plus className="h-4 w-4 mr-1" />
+              ブランド追加
+            </Button>
+          )}
+        </div>
+
+        {masterLoading ? (
+          <div className="flex items-center justify-center py-10">
+            <Loader2 className="h-5 w-5 animate-spin text-muted" />
+          </div>
+        ) : masterBrands.length === 0 ? (
+          <div className="bg-card rounded-lg border border-border p-8 text-center text-sm text-muted">
+            ブランドが未登録です。「ブランド追加」から作成してください。
+          </div>
+        ) : (
+          <div className="bg-card rounded-lg border border-border overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border bg-background/50">
+                  <th className="text-left px-4 py-2.5 font-semibold text-muted text-xs">ブランド名</th>
+                  <th className="text-left px-4 py-2.5 font-semibold text-muted text-xs">別名（エイリアス）</th>
+                  {canEditSettings && (
+                    <th className="text-center px-4 py-2.5 font-semibold text-muted text-xs w-24">操作</th>
+                  )}
+                </tr>
+              </thead>
+              <tbody>
+                {masterBrands.map((b) => (
+                  <tr key={b.id} className="border-b border-border last:border-b-0 hover:bg-primary-light/10">
+                    <td className="px-4 py-2.5 font-semibold text-foreground">{b.name}</td>
+                    <td className="px-4 py-2.5 text-muted text-xs">
+                      {b.aliases.length > 0 ? b.aliases.join(', ') : '---'}
+                    </td>
+                    {canEditSettings && (
+                      <td className="px-4 py-2.5 text-center">
+                        <div className="flex gap-1 justify-center">
+                          <button onClick={() => openEditBrand(b)} className="text-xs text-primary hover:underline px-2 py-1">
+                            編集
+                          </button>
+                          <button onClick={() => setBrandDeleteTarget(b)} className="text-xs text-accent hover:underline px-2 py-1">
+                            削除
+                          </button>
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
       {/* カード会社グループ設定 */}
       <section>
         <div className="flex items-center justify-between mb-4">
@@ -404,6 +526,61 @@ export default function SettingsPage() {
           </div>
         )}
       </section>
+
+      {/* ブランドマスタ編集ダイアログ */}
+      <Dialog open={brandEditDialog} onOpenChange={setBrandEditDialog}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{brandForm.id ? 'ブランドを編集' : 'ブランドを追加'}</DialogTitle>
+            <DialogDescription>OCR読取で使用するブランド名と別名を設定</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>ブランド名</Label>
+              <Input
+                value={brandForm.name}
+                onChange={(e) => setBrandForm({ ...brandForm, name: e.target.value })}
+                placeholder="例: JCB GROUP"
+                className="mt-1"
+              />
+              <p className="text-[11px] text-muted mt-1">この名前がデータに保存されます</p>
+            </div>
+            <div>
+              <Label>別名（カンマ区切り）</Label>
+              <Input
+                value={brandForm.aliases}
+                onChange={(e) => setBrandForm({ ...brandForm, aliases: e.target.value })}
+                placeholder="例: JCB, ジェイシービー"
+                className="mt-1"
+              />
+              <p className="text-[11px] text-muted mt-1">AIが別表記で返した場合の変換候補</p>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setBrandEditDialog(false)}>キャンセル</Button>
+              <Button onClick={saveBrand} disabled={brandSaving}>
+                <Save className="h-4 w-4 mr-1" />
+                {brandSaving ? '保存中...' : '保存'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ブランドマスタ削除確認ダイアログ */}
+      <Dialog open={!!brandDeleteTarget} onOpenChange={() => setBrandDeleteTarget(null)}>
+        <DialogContent className="max-w-xs">
+          <DialogHeader>
+            <DialogTitle>ブランドを削除しますか？</DialogTitle>
+            <DialogDescription>
+              「{brandDeleteTarget?.name}」を削除します。既存データのカード会社名には影響しません。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-2 justify-end">
+            <Button variant="outline" onClick={() => setBrandDeleteTarget(null)}>キャンセル</Button>
+            <Button variant="destructive" onClick={confirmDeleteBrand}>削除する</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* ユーザー追加ダイアログ */}
       <Dialog open={addUserDialog} onOpenChange={setAddUserDialog}>

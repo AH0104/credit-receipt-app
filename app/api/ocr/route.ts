@@ -32,6 +32,27 @@ export async function POST(request: NextRequest) {
 
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
 
+    // カードブランドマスタを取得してプロンプトに反映
+    const { data: brandMaster } = await supabase
+      .from('card_brand_master')
+      .select('name, aliases')
+      .order('sort_order');
+
+    const brandNames = brandMaster?.map((b: { name: string }) => b.name) ?? [];
+    const brandList = brandNames.length > 0
+      ? brandNames.join(' / ')
+      : 'JCB GROUP / MUFGカード / ビザ/マスター / iD / QUIC Pay / 交通IC / Edy / メルペイ / auPAY / dバライ';
+
+    // エイリアス→正規名のマッピングを構築
+    const aliasMap = new Map<string, string>();
+    for (const b of brandMaster ?? []) {
+      const brand = b as { name: string; aliases: string[] };
+      aliasMap.set(brand.name.toLowerCase(), brand.name);
+      for (const alias of brand.aliases) {
+        aliasMap.set(alias.toLowerCase(), brand.name);
+      }
+    }
+
     const results = [];
 
     for (const image of images) {
@@ -68,10 +89,11 @@ JSONのみを返し、マークダウンや説明文は含めないでくださ�
 - installment_count: 分割回数の数値（一括=1、分割2回=2、分割3回=3 等）。
   分割以外またはnullの場合は1
 - terminal_number: TID、端末ID、端末番号の値
-- card_brand: 以下の優先順位で抽出
-  1. カード会社欄（JCB, VISA, Mastercard, MUFGカード等）
-  2. 決済サービス名（d払い, au PAY, PayPay等）
-  3. 上部[]内のテキスト（コード支払い、クレジットカード等）
+- card_brand: レシート上のカード会社名・ブランドロゴ・マークから判別し、
+  以下のリストから最も近いものを**そのまま**返すこと:
+  [${brandList}]
+  ※「MUFGカード」「三井住友カード」等の記載があれば、上記リストにある対応する名称を返す
+  ※上記リストに該当がなければ「その他」と返す
 - amount: 合計金額の数値（取消・返品はマイナス値）
 - clerk: 係員欄の手書き名や印鑑（カード名義人ではない）
 - confidence: 読み取り確信度
@@ -138,10 +160,18 @@ JSONのみを返し、マークダウンや説明文は含めないでくださ�
 
         items.forEach((item: any) => {
           const normalized = normalizeOcrResult(item);
+          // マスタのエイリアスで正規名に変換（安全ネット）
+          let resolvedBrand = normalized.card_brand;
+          if (resolvedBrand && aliasMap.size > 0) {
+            const mapped = aliasMap.get(resolvedBrand.toLowerCase());
+            if (mapped) {
+              resolvedBrand = mapped;
+            }
+          }
           results.push({
             transaction_date: normalized.transaction_date,
             transaction_content: normalized.transaction_content,
-            card_brand: normalized.card_brand,
+            card_brand: resolvedBrand,
             amount: normalized.amount,
             slip_number: normalized.slip_number,
             confidence: normalized.confidence,
