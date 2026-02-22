@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Plus, Trash2, Save, Loader2, FileText, Clock, Users, Shield, UserPlus, CreditCard, Pencil } from 'lucide-react';
+import { Plus, Trash2, Save, Loader2, FileText, Clock, Users, Shield, UserPlus, CreditCard, Pencil, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -62,7 +62,22 @@ export default function SettingsPage() {
   const [brandDeleteTarget, setBrandDeleteTarget] = useState<CardBrandMaster | null>(null);
   const [brandSaving, setBrandSaving] = useState(false);
 
+  const [normalizing, setNormalizing] = useState(false);
+
   const canEditSettings = permissions.canManageSettings || permissions.canEditRecords;
+
+  const handleNormalizeBrands = async () => {
+    setNormalizing(true);
+    try {
+      const res = await fetch('/api/admin/normalize-brands', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      showToast(data.message || '完了しました');
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : '変換に失敗しました');
+    }
+    setNormalizing(false);
+  };
 
   const openNewBrand = () => {
     setBrandForm({ name: '', aliases: '' });
@@ -360,10 +375,16 @@ export default function SettingsPage() {
             </p>
           </div>
           {canEditSettings && (
-            <Button variant="outline" size="sm" onClick={openNewBrand}>
-              <Plus className="h-4 w-4 mr-1" />
-              ブランド追加
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={handleNormalizeBrands} disabled={normalizing}>
+                <RefreshCw className={`h-4 w-4 mr-1 ${normalizing ? 'animate-spin' : ''}`} />
+                {normalizing ? '変換中...' : '既存データ一括変換'}
+              </Button>
+              <Button variant="outline" size="sm" onClick={openNewBrand}>
+                <Plus className="h-4 w-4 mr-1" />
+                ブランド追加
+              </Button>
+            </div>
           )}
         </div>
 

@@ -5,7 +5,7 @@
 export type PaymentCategory = '一括' | '2回' | 'その他' | 'ボーナス';
 
 /**
- * 全角英数字→半角、全角スペース→半角スペース
+ * 全角英数字→半角、全角スペース→半角スペース、半角カナ→全角、分離濁点結合
  */
 export function normalizeText(s: string | null | undefined): string {
   if (!s) return '';
@@ -29,10 +29,15 @@ export function normalizeText(s: string | null | undefined): string {
         'ﾔ': 'ヤ', 'ﾕ': 'ユ', 'ﾖ': 'ヨ',
         'ﾗ': 'ラ', 'ﾘ': 'リ', 'ﾙ': 'ル', 'ﾚ': 'レ', 'ﾛ': 'ロ',
         'ﾜ': 'ワ', 'ﾝ': 'ン',
-        'ﾞ': '゛', 'ﾟ': '゜', 'ｰ': 'ー', '･': '・',
+        'ﾞ': '\u3099', 'ﾟ': '\u309A', 'ｰ': 'ー', '･': '・',
       };
       return kanaMap[c] || c;
     })
+    // 分離濁点(゛ U+309B)・半濁点(゜ U+309C) → 結合用(U+3099 / U+309A)に変換
+    .replace(/\u309B/g, '\u3099')
+    .replace(/\u309C/g, '\u309A')
+    // NFC正規化で「カ + 結合濁点」→「ガ」等に結合
+    .normalize('NFC')
     .trim();
 }
 
@@ -57,10 +62,15 @@ const CARD_BRAND_ALIASES: [RegExp, string][] = [
 
 /**
  * カード会社名を正規化
+ * - 括弧付き情報を除去: "MUFGカード (105)" → "MUFGカード"
+ * - 半角カナ・分離濁点を結合: "ヒ゛サ゛/マスター" → "ビザ/マスター"
+ * - エイリアス解決: "JCB" → "JCB" 等
  */
 export function normalizeCardBrand(brand: string | null | undefined): string | null {
   if (!brand) return null;
-  const normalized = normalizeText(brand);
+  let normalized = normalizeText(brand);
+  // 括弧付きの付加情報を除去（半角・全角両対応）
+  normalized = normalized.replace(/\s*[\(（].*[\)）]$/, '').trim();
   for (const [pattern, canonical] of CARD_BRAND_ALIASES) {
     if (pattern.test(normalized)) return canonical;
   }
