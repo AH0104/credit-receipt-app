@@ -55,6 +55,10 @@ export async function POST(request: NextRequest) {
 
     const results = [];
 
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1;
+
     for (const image of images) {
       try {
         const isPdf = image.mimeType === 'application/pdf';
@@ -100,7 +104,8 @@ JSONのみを返し、マークダウンや説明文は含めないでくださ�
 
 注意:
 - カード番号は絶対に抽出しないこと
-- ${isPdf ? 'PDF内の全ページを確認し、' : '画像内の'}全てのレシートを漏れなく抽出すること`;
+- ${isPdf ? 'PDF内の全ページを確認し、' : '画像内の'}全てのレシートを漏れなく抽出すること
+- 現在は${currentYear}年${currentMonth}月です。年の読み取りには特に注意し、${currentYear - 1}年と誤読しないようにしてください`;
 
         const result = await ai.models.generateContent({
           model: 'gemini-3-flash-preview',

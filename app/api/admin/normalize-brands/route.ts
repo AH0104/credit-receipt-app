@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createServerClient } from '@supabase/ssr';
+import { normalizeText } from '@/lib/utils/normalize';
 
 export async function POST(request: NextRequest) {
   try {
@@ -63,7 +64,16 @@ export async function POST(request: NextRequest) {
     const updates: { id: string; newBrand: string }[] = [];
     for (const t of transactions) {
       if (masterNames.has(t.card_brand)) continue; // 既に正規名
-      const mapped = aliasMap.get(t.card_brand.toLowerCase());
+      // テキスト正規化（半角カナ→全角、分離濁点結合）+ 括弧除去
+      let cleaned = normalizeText(t.card_brand);
+      cleaned = cleaned.replace(/\s*[\(（].*[\)）]$/, '').trim();
+      // 正規化後にマスタ名と完全一致すればそれを採用
+      if (masterNames.has(cleaned)) {
+        updates.push({ id: t.id, newBrand: cleaned });
+        continue;
+      }
+      // エイリアスで解決
+      const mapped = aliasMap.get(cleaned.toLowerCase());
       if (mapped && mapped !== t.card_brand) {
         updates.push({ id: t.id, newBrand: mapped });
       }
