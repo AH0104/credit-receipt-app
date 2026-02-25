@@ -18,7 +18,7 @@ type FilterMode = 'all' | 'active' | 'archived';
 
 export default function RecordsPage() {
   const {
-    transactions, loading, update, remove, confirmAmount,
+    transactions, loading, insert, update, remove, confirmAmount,
     page, setPage, totalCount, totalPages, pageSize,
     yearMonth, changeYearMonth, yearMonthOptions,
   } = useTransactions();
@@ -30,7 +30,42 @@ export default function RecordsPage() {
   const [deleteTarget, setDeleteTarget] = useState<Transaction | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [filter, setFilter] = useState<FilterMode>('all');
+  const [isAdding, setIsAdding] = useState(false);
+  const [addFields, setAddFields] = useState<Partial<Transaction>>({});
+  const [saving, setSaving] = useState(false);
   const router = useRouter();
+
+  const startAdd = () => {
+    setEditingId(null);
+    setIsAdding(true);
+    setAddFields({
+      transaction_date: new Date().toISOString().split('T')[0],
+      card_brand: '',
+      transaction_content: '売上',
+      amount: 0,
+      slip_number: '',
+      payment_type: '一括',
+      terminal_number: '',
+      clerk: '',
+    });
+  };
+
+  const saveAdd = async () => {
+    if (!addFields.transaction_date || !addFields.amount) {
+      showToast('取引日と金額は必須です');
+      return;
+    }
+    setSaving(true);
+    try {
+      const uploaderName = profile?.display_name || profile?.email || '不明';
+      await insert([addFields], undefined, uploaderName);
+      setIsAdding(false);
+      showToast('手動登録しました');
+    } catch {
+      showToast('登録に失敗しました');
+    }
+    setSaving(false);
+  };
 
   const filtered = useMemo(() => {
     if (filter === 'active') return transactions.filter((t) => !t.archived_period_id);
@@ -126,6 +161,12 @@ export default function RecordsPage() {
           </span>
         </div>
         <div className="flex gap-2">
+          {permissions.canEditRecords && (
+            <Button variant="outline" size="sm" onClick={startAdd} disabled={isAdding}>
+              <Plus className="h-4 w-4 mr-1" />
+              手動追加
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={() => router.push('/upload')}>
             <Plus className="h-4 w-4 mr-1" />
             追加読取
@@ -198,7 +239,7 @@ export default function RecordsPage() {
       )}
 
       {/* テーブル */}
-      {filtered.length === 0 ? (
+      {filtered.length === 0 && !isAdding ? (
         <div className="text-center py-16 text-muted text-sm">
           {yearMonth
             ? 'この期間のデータはありません。'
@@ -222,6 +263,99 @@ export default function RecordsPage() {
               </tr>
             </thead>
             <tbody>
+              {isAdding && (
+                <tr className="border-b border-border bg-primary-light/30">
+                  <td className="px-2 py-1.5">
+                    <Input
+                      type="date"
+                      value={addFields.transaction_date || ''}
+                      onChange={(e) => setAddFields({ ...addFields, transaction_date: e.target.value })}
+                      className="h-8 text-xs"
+                      autoFocus
+                    />
+                  </td>
+                  <td className="px-2 py-1.5">
+                    <select
+                      value={addFields.card_brand || ''}
+                      onChange={(e) => setAddFields({ ...addFields, card_brand: e.target.value })}
+                      className="h-8 w-full rounded border border-border bg-card px-1.5 text-xs"
+                    >
+                      <option value="">--</option>
+                      {masterBrands.map((b) => (
+                        <option key={b.id} value={b.name}>{b.name}</option>
+                      ))}
+                      <option value="その他">その他</option>
+                    </select>
+                  </td>
+                  <td className="px-2 py-1.5">
+                    <select
+                      value={addFields.transaction_content || '売上'}
+                      onChange={(e) => setAddFields({ ...addFields, transaction_content: e.target.value })}
+                      className="h-8 w-full rounded border border-border bg-card px-1.5 text-xs"
+                    >
+                      <option value="売上">売上</option>
+                      <option value="取消">取消</option>
+                      <option value="返品">返品</option>
+                    </select>
+                  </td>
+                  <td className="px-2 py-1.5">
+                    <Input
+                      type="number"
+                      value={addFields.amount || ''}
+                      onChange={(e) => setAddFields({ ...addFields, amount: Number(e.target.value) || 0 })}
+                      className="h-8 text-xs text-right"
+                    />
+                  </td>
+                  <td className="px-2 py-1.5">
+                    <Input
+                      value={addFields.slip_number || ''}
+                      onChange={(e) => setAddFields({ ...addFields, slip_number: e.target.value })}
+                      className="h-8 text-xs"
+                    />
+                  </td>
+                  <td className="px-2 py-1.5">
+                    <Input
+                      value={addFields.payment_type || ''}
+                      onChange={(e) => setAddFields({ ...addFields, payment_type: e.target.value })}
+                      className="h-8 text-xs"
+                    />
+                  </td>
+                  <td className="px-2 py-1.5">
+                    <Input
+                      value={addFields.terminal_number || ''}
+                      onChange={(e) => setAddFields({ ...addFields, terminal_number: e.target.value })}
+                      className="h-8 text-xs"
+                    />
+                  </td>
+                  <td className="px-2 py-1.5">
+                    <Input
+                      value={addFields.clerk || ''}
+                      onChange={(e) => setAddFields({ ...addFields, clerk: e.target.value })}
+                      className="h-8 text-xs"
+                    />
+                  </td>
+                  <td className="px-2 py-1.5 text-[10px] text-muted">手動登録</td>
+                  <td className="px-2 py-1.5">
+                    <div className="flex gap-1 justify-center">
+                      <button
+                        onClick={saveAdd}
+                        disabled={saving}
+                        className="p-1.5 rounded hover:bg-success-light text-success transition-colors disabled:opacity-50"
+                        title="登録"
+                      >
+                        <Check className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => setIsAdding(false)}
+                        className="p-1.5 rounded hover:bg-background text-muted transition-colors"
+                        title="キャンセル"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              )}
               {filtered.map((t) => {
                 const brand = getBrandInfo(t.card_brand);
                 const cancel = isCancel(t.transaction_content);
