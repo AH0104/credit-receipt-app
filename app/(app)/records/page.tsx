@@ -2,12 +2,12 @@
 
 import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Download, Trash2, Check, X, Loader2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ShieldCheck } from 'lucide-react';
+import { Plus, Download, Trash2, Check, X, Loader2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ShieldCheck, ArrowUpDown, ArrowUp, ArrowDown, Filter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useToast } from '@/components/layout/toast-provider';
-import { useTransactions } from '@/lib/hooks/use-transactions';
+import { useTransactions, type SortKey } from '@/lib/hooks/use-transactions';
 import { useUserProfile } from '@/lib/hooks/use-user-profile';
 import { useCardBrandMaster } from '@/lib/hooks/use-card-brand-master';
 import { getBrandInfo, formatYen, isCancel } from '@/lib/constants/card-brands';
@@ -21,6 +21,9 @@ export default function RecordsPage() {
     transactions, loading, insert, update, remove, confirmAmount,
     page, setPage, totalCount, totalPages, pageSize,
     yearMonth, changeYearMonth, yearMonthOptions,
+    brandFilter, changeBrandFilter,
+    contentFilter, changeContentFilter,
+    sortKey, sortDir, changeSort,
   } = useTransactions();
   const { profile, permissions } = useUserProfile();
   const { brands: masterBrands } = useCardBrandMaster();
@@ -215,6 +218,55 @@ export default function RecordsPage() {
         </div>
       )}
 
+      {/* カード会社・区分フィルタ */}
+      <div className="flex items-center gap-4 flex-wrap">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold text-muted">カード</span>
+          <select
+            value={brandFilter || ''}
+            onChange={(e) => changeBrandFilter(e.target.value || null)}
+            className="h-7 rounded border border-border bg-card px-2 text-xs text-foreground"
+          >
+            <option value="">すべて</option>
+            {masterBrands.map((b) => (
+              <option key={b.id} value={b.name}>{b.name}</option>
+            ))}
+          </select>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold text-muted">区分</span>
+          <div className="flex gap-1">
+            {[
+              { value: null, label: 'すべて' },
+              { value: '売上', label: '売上' },
+              { value: '取消', label: '取消' },
+              { value: '返品', label: '返品' },
+            ].map((opt) => (
+              <button
+                key={opt.label}
+                onClick={() => changeContentFilter(opt.value)}
+                className={`px-2.5 py-1 text-xs rounded-md border transition-colors ${
+                  contentFilter === opt.value
+                    ? 'bg-primary text-white border-primary'
+                    : 'bg-card border-border text-muted hover:bg-primary-light/20'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        {(brandFilter || contentFilter) && (
+          <button
+            onClick={() => { changeBrandFilter(null); changeContentFilter(null); }}
+            className="text-xs text-muted hover:text-accent transition-colors flex items-center gap-0.5"
+          >
+            <X className="h-3 w-3" />
+            フィルタ解除
+          </button>
+        )}
+      </div>
+
       {/* 確定/未確定フィルタ */}
       {archivedCount > 0 && (
         <div className="flex gap-1">
@@ -250,14 +302,31 @@ export default function RecordsPage() {
           <table className="w-full text-sm">
             <thead className="sticky top-14 z-10">
               <tr className="border-b border-border bg-card">
-                <th className="text-left px-3 py-2.5 font-semibold text-muted text-xs">取引日</th>
-                <th className="text-left px-3 py-2.5 font-semibold text-muted text-xs">カード</th>
-                <th className="text-left px-3 py-2.5 font-semibold text-muted text-xs">区分</th>
-                <th className="text-right px-3 py-2.5 font-semibold text-muted text-xs">金額</th>
-                <th className="text-left px-3 py-2.5 font-semibold text-muted text-xs">伝票No</th>
-                <th className="text-left px-3 py-2.5 font-semibold text-muted text-xs">支払方法</th>
-                <th className="text-left px-3 py-2.5 font-semibold text-muted text-xs">端末</th>
-                <th className="text-left px-3 py-2.5 font-semibold text-muted text-xs">係員</th>
+                {([
+                  { key: 'transaction_date' as SortKey, label: '取引日', align: 'left' },
+                  { key: 'card_brand' as SortKey, label: 'カード', align: 'left' },
+                  { key: 'transaction_content' as SortKey, label: '区分', align: 'left' },
+                  { key: 'amount' as SortKey, label: '金額', align: 'right' },
+                  { key: 'slip_number' as SortKey, label: '伝票No', align: 'left' },
+                  { key: 'payment_type' as SortKey, label: '支払方法', align: 'left' },
+                  { key: 'terminal_number' as SortKey, label: '端末', align: 'left' },
+                  { key: 'clerk' as SortKey, label: '係員', align: 'left' },
+                ] as const).map(({ key, label, align }) => (
+                  <th
+                    key={key}
+                    onClick={() => changeSort(key)}
+                    className={`${align === 'right' ? 'text-right' : 'text-left'} px-3 py-2.5 font-semibold text-muted text-xs cursor-pointer select-none hover:text-foreground transition-colors`}
+                  >
+                    <span className="inline-flex items-center gap-0.5">
+                      {label}
+                      {sortKey === key ? (
+                        sortDir === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                      ) : (
+                        <ArrowUpDown className="h-3 w-3 opacity-30" />
+                      )}
+                    </span>
+                  </th>
+                ))}
                 <th className="text-left px-3 py-2.5 font-semibold text-muted text-xs">操作履歴</th>
                 <th className="text-center px-3 py-2.5 font-semibold text-muted text-xs w-28">操作</th>
               </tr>
