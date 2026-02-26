@@ -12,6 +12,9 @@ export interface YearMonth {
   label: string; // "2026年2月"
 }
 
+export type SortKey = 'transaction_date' | 'card_brand' | 'transaction_content' | 'amount' | 'slip_number' | 'payment_type' | 'terminal_number' | 'clerk' | 'created_at';
+export type SortDir = 'asc' | 'desc';
+
 export function useTransactions() {
   const supabase = createClient();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -25,6 +28,16 @@ export function useTransactions() {
   // 年月フィルタ
   const [yearMonth, setYearMonth] = useState<string | null>(null); // "2026-02" or null
   const [yearMonthOptions, setYearMonthOptions] = useState<YearMonth[]>([]);
+
+  // カード会社フィルタ
+  const [brandFilter, setBrandFilter] = useState<string | null>(null);
+
+  // 区分フィルタ
+  const [contentFilter, setContentFilter] = useState<string | null>(null);
+
+  // ソート
+  const [sortKey, setSortKey] = useState<SortKey>('transaction_date');
+  const [sortDir, setSortDir] = useState<SortDir>('desc');
 
   // 年月の選択肢を取得（全取引の transaction_date から重複なしの年月リスト）
   const fetchYearMonths = useCallback(async () => {
@@ -51,7 +64,7 @@ export function useTransactions() {
     setYearMonthOptions(options);
   }, [supabase]);
 
-  // メインの取引データ取得（ページネーション＋年月フィルタ対応）
+  // メインの取引データ取得（ページネーション＋フィルタ＋ソート対応）
   const fetch = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -71,8 +84,20 @@ export function useTransactions() {
       query = query.gte('transaction_date', start).lt('transaction_date', nextMonth);
     }
 
+    // カード会社フィルタ
+    if (brandFilter) {
+      query = query.eq('card_brand', brandFilter);
+    }
+
+    // 区分フィルタ
+    if (contentFilter) {
+      query = query.eq('transaction_content', contentFilter);
+    }
+
+    // ソート（NULLは末尾に配置）
+    const ascending = sortDir === 'asc';
     query = query
-      .order('transaction_date', { ascending: false })
+      .order(sortKey, { ascending, nullsFirst: false })
       .order('created_at', { ascending: false })
       .range(from, to);
 
@@ -85,7 +110,7 @@ export function useTransactions() {
       setTotalCount(count ?? 0);
     }
     setLoading(false);
-  }, [supabase, page, yearMonth]);
+  }, [supabase, page, yearMonth, brandFilter, contentFilter, sortKey, sortDir]);
 
   useEffect(() => {
     fetchYearMonths();
@@ -95,9 +120,33 @@ export function useTransactions() {
     fetch();
   }, [fetch]);
 
-  // 年月変更時はページを1に戻す
+  // フィルタ・ソート変更時はページを1に戻す
   const changeYearMonth = useCallback((ym: string | null) => {
     setYearMonth(ym);
+    setPage(1);
+  }, []);
+
+  const changeBrandFilter = useCallback((brand: string | null) => {
+    setBrandFilter(brand);
+    setPage(1);
+  }, []);
+
+  const changeContentFilter = useCallback((content: string | null) => {
+    setContentFilter(content);
+    setPage(1);
+  }, []);
+
+  const changeSort = useCallback((key: SortKey) => {
+    setSortKey((prev) => {
+      if (prev === key) {
+        // 同じキーなら方向トグル
+        setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+      } else {
+        // 新しいキーならデフォルト方向
+        setSortDir(key === 'amount' ? 'desc' : 'asc');
+      }
+      return key;
+    });
     setPage(1);
   }, []);
 
@@ -211,5 +260,15 @@ export function useTransactions() {
     yearMonth,
     changeYearMonth,
     yearMonthOptions,
+    // カード会社フィルタ
+    brandFilter,
+    changeBrandFilter,
+    // 区分フィルタ
+    contentFilter,
+    changeContentFilter,
+    // ソート
+    sortKey,
+    sortDir,
+    changeSort,
   };
 }
