@@ -117,6 +117,18 @@ export function classifyPaymentCategory(
 }
 
 /**
+ * 取引種別を正規化（DB CHECK制約: '売上' | '取消' | '返品' | null）
+ */
+export function normalizeTransactionContent(content: string | null | undefined): string | null {
+  if (!content) return null;
+  const s = normalizeText(content);
+  if (/^(取消|キャンセル|ボイド|VOID|cancel)/i.test(s)) return '取消';
+  if (/^(返品|返金|return)/i.test(s)) return '返品';
+  // 売上・利用・支払・チャージ・決済 等はすべて「売上」
+  return '売上';
+}
+
+/**
  * OCR結果全体を正規化
  */
 export function normalizeOcrResult(item: Record<string, any>): Record<string, any> {
@@ -124,7 +136,7 @@ export function normalizeOcrResult(item: Record<string, any>): Record<string, an
     ...item,
     card_brand: normalizeCardBrand(item.card_brand),
     payment_type: normalizePaymentType(item.payment_type),
-    transaction_content: item.transaction_content ? normalizeText(item.transaction_content) : item.transaction_content,
+    transaction_content: normalizeTransactionContent(item.transaction_content),
     terminal_number: item.terminal_number ? normalizeText(item.terminal_number) : item.terminal_number,
     slip_number: item.slip_number ? normalizeText(item.slip_number) : item.slip_number,
     clerk: item.clerk ? normalizeText(item.clerk) : item.clerk,
