@@ -1,11 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { AggregationPreset, AggregationResult } from '@/lib/types/aggregation';
 
 export function useAggregation() {
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const [results, setResults] = useState<AggregationResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

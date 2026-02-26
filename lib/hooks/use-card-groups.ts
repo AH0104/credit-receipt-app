@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { CardBrandGroup } from '@/lib/types/card-group';
 
 export function useCardGroups() {
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const [groups, setGroups] = useState<CardBrandGroup[]>([]);
   const [loading, setLoading] = useState(true);
 

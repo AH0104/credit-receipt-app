@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { Transaction } from '@/lib/types/transaction';
 
@@ -16,7 +16,7 @@ export type SortKey = 'transaction_date' | 'card_brand' | 'transaction_content' 
 export type SortDir = 'asc' | 'desc';
 
 export function useTransactions() {
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -94,11 +94,12 @@ export function useTransactions() {
       query = query.eq('transaction_content', contentFilter);
     }
 
-    // ソート（NULLは末尾に配置）
+    // ソート（NULLは末尾に配置、idで安定ソート保証）
     const ascending = sortDir === 'asc';
     query = query
       .order(sortKey, { ascending, nullsFirst: false })
       .order('created_at', { ascending: false })
+      .order('id', { ascending: true })
       .range(from, to);
 
     const { data, error: err, count } = await query;
