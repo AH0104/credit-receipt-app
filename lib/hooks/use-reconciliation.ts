@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { classifyPaymentCategory } from '@/lib/utils/normalize';
 import type { ReconciliationPeriod, ReconciliationEntry } from '@/lib/types/reconciliation';
@@ -22,7 +22,7 @@ export interface PeriodWithEntries extends ReconciliationPeriod {
 }
 
 export function useReconciliation() {
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const [periods, setPeriods] = useState<PeriodWithEntries[]>([]);
   const [loading, setLoading] = useState(true);
 

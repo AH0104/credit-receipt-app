@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { Transaction } from '@/lib/types/transaction';
 
@@ -9,7 +9,7 @@ import type { Transaction } from '@/lib/types/transaction';
  * ページネーションなし。Supabase の 1000 件制限を回避するため全件ループ取得。
  */
 export function useAllTransactions() {
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -29,6 +29,7 @@ export function useAllTransactions() {
         .select('*')
         .order('transaction_date', { ascending: false })
         .order('created_at', { ascending: false })
+        .order('id', { ascending: true })
         .range(from, from + PAGE - 1);
 
       if (err) {

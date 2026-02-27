@@ -6,7 +6,7 @@ import type { UserProfile, UserRole } from '@/lib/types/user-profile';
 import { ROLE_PERMISSIONS } from '@/lib/types/user-profile';
 
 export function useUserProfile() {
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -46,7 +46,7 @@ export function useUserProfile() {
 }
 
 export function useUserManagement() {
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { UploadLog, UploadedFile, OcrRawResult } from '@/lib/types/upload';
 
@@ -9,7 +9,7 @@ export interface UploadLogWithFiles extends UploadLog {
 }
 
 export function useUploadLogs() {
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const [logs, setLogs] = useState<UploadLogWithFiles[]>([]);
   const [loading, setLoading] = useState(true);
 
