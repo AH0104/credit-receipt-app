@@ -1,5 +1,5 @@
 # SYSTEM.md - minato-finance
-# 最終更新：2026-03-07
+# 最終更新：2026-04-29
 # 対応schema_version：007
 # このファイルはminato-dx-managerの常駐AIが参照します。
 # 変更を加えたら必ずこのファイルも更新してください。
@@ -25,4 +25,5 @@ Gemini API  クレジット明細・レシートのOCR処理
 Next.js 14.2使用（古い・Phase 1でアップグレード予定）
 
 ## 直近の変更内容
+2026-04-29  集計ページにExcel出力機能を追加（依存追加: xlsx 0.18.5）
 2026-03-07  SYSTEM.md・CLAUDE.md追加

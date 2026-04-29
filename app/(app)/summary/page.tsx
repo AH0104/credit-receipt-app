@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import dynamic from 'next/dynamic';
-import { Loader2 } from 'lucide-react';
+import { Download, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAllTransactions } from '@/lib/hooks/use-all-transactions';
 import { useCardGroups } from '@/lib/hooks/use-card-groups';
@@ -159,6 +159,37 @@ export default function SummaryPage() {
     }
   };
 
+  const [exporting, setExporting] = useState(false);
+
+  const handleExportExcel = async () => {
+    const tableEl = document.querySelector(
+      '.pivot-container table.pvtTable'
+    ) as HTMLTableElement | null;
+    if (!tableEl) {
+      alert('エクスポート対象の集計結果が見つかりません。行・列・値を設定してください。');
+      return;
+    }
+    setExporting(true);
+    try {
+      const XLSX = await import('xlsx');
+      const wb = XLSX.utils.table_to_book(tableEl, { sheet: '集計', raw: false });
+      const today = new Date();
+      const yyyy = today.getFullYear();
+      const mm = String(today.getMonth() + 1).padStart(2, '0');
+      const dd = String(today.getDate()).padStart(2, '0');
+      const periodLabel =
+        startDate || endDate
+          ? `_${(startDate || '').replace(/-/g, '')}-${(endDate || '').replace(/-/g, '')}`
+          : '';
+      XLSX.writeFile(wb, `集計${periodLabel}_${yyyy}${mm}${dd}.xlsx`);
+    } catch (err) {
+      console.error('Excelエクスポートに失敗しました', err);
+      alert('Excelエクスポートに失敗しました。');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   if (loading || groupsLoading || !renderers) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -170,9 +201,25 @@ export default function SummaryPage() {
 
   return (
     <div className="space-y-4 summary-full-width">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
         <h1 className="text-lg font-bold text-foreground">集計・ピボットテーブル</h1>
-        <p className="text-sm text-muted">項目をドラッグして行・列に配置してください</p>
+        <div className="flex items-center gap-3">
+          <p className="text-sm text-muted">項目をドラッグして行・列に配置してください</p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportExcel}
+            disabled={exporting || pivotData.length === 0}
+            className="h-8"
+          >
+            {exporting ? (
+              <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4 mr-1.5" />
+            )}
+            Excel出力
+          </Button>
+        </div>
       </div>
 
       {/* 日付フィルタ */}
